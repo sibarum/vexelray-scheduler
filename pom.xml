@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>dev.vexelray.scheduler</groupId>
+    <artifactId>vexelray-scheduler</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+
+    <name>VexelRay Scheduler</name>
+    <description>The VexelRay scheduler.</description>
+
+    <modules>
+        <!-- The desktop application, generated from vexelray-framework-template's vexel-desktop template. -->
+        <module>vexelray-scheduler-app</module>
+    </modules>
+
+    <!-- What every module builds against. The stack's versions live here so the modules cannot disagree about
+         them; each module still names its own dependencies and plugins. -->
+    <properties>
+        <maven.compiler.release>25</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <vexelray-framework.version>0.1.2-SNAPSHOT</vexelray-framework.version>
+        <vexelray-gui.version>0.1.2-SNAPSHOT</vexelray-gui.version>
+        <vexelray.version>0.1.2-SNAPSHOT</vexelray.version>
+        <tactroller.version>1.2-SNAPSHOT</tactroller.version>
+        <junit.version>5.11.4</junit.version>
+    </properties>
+</project>
