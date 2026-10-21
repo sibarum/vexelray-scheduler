@@ -1,120 +1,102 @@
 package dev.vexelray.scheduler.app;
 
-import java.nio.file.Path;
+import dev.vexelray.scheduler.app.visits.Review;
+import dev.vexelray.scheduler.app.visits.Team;
+
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.UnaryOperator;
+import java.util.Optional;
 
 /**
- * Everything the application knows about its session, in one immutable value: which files are open, in what
- * order, which one is in front, which have unsaved work, which folder the navigator shows, and the last thing the
- * status line was told.
+ * Everything the application knows, in one immutable value: the schedule, the day being looked at, the visit picked
+ * out on it, the fix being considered, and the changes made so far, each with the schedule as it was before.
  *
  * <h2>Why a record, and why one</h2>
  *
- * <p>A snapshot rather than a set of fields somebody mutates. The title bar, the status line, the close gate and
- * the remembered session all read this from different threads while handlers write it from workers, and a record
- * handed over by a single reference swap is the whole synchronisation story: there is no instant at which a reader
- * sees half an edit. Add fields here rather than adding state elsewhere.
+ * <p>A snapshot rather than a set of fields somebody mutates. The window reads this from the committing thread while
+ * handlers write it from workers, and a record handed over by a single reference swap is the whole synchronisation
+ * story: there is no instant at which a reader sees half an edit. Add fields here rather than adding state
+ * elsewhere.
  *
- * <h2>What it does not hold is the text</h2>
+ * <p>What the day <em>means</em> (covered or not, and why) is not held here. It is {@link #review}, a function of
+ * the schedule, so it can never disagree with it.
  *
- * <p>Each document's text is already one versioned value — the {@code State<Document>} inside its
- * {@code TextField} — so copying it here would be a second place it lives, and the two would disagree for a frame
- * every keystroke. This is the part nothing else owns: the shape of the session.
- *
- * <p>A tab is named by an {@code id}, not an index. An index is a fact about the tab bar at one instant, and a
- * close landing between a read and a write turns it into the neighbour's.
+ * @param selected the visit picked out, by id; empty when none is
+ * @param chosen   the fix being considered, by index into the focused visit's fixes; {@link #NONE} when none is
+ * @param history  every change made, oldest first
  */
-record Doc(List<Entry> tabs, long active, Path folder, String status) {
+record Doc(Team team, int day, int today, int now, Optional<String> selected, int chosen, List<Change> history) {
 
-    /** No tab is in front. */
-    static final long NONE = -1;
+    /** No fix is being considered. */
+    static final int NONE = -1;
 
-    /**
-     * One open file.
-     *
-     * @param id    stable for the life of the tab
-     * @param path  where it is on disk; every document here has one
-     * @param dirty whether it differs from what was last loaded or saved
-     */
-    record Entry(long id, Path path, boolean dirty) {
-
-        /** The tab's label: the file name, with a bullet in front while it is unsaved. */
-        String title() {
-            String name = String.valueOf(path.getFileName());
-            return dirty ? "• " + name : name;
-        }
-
-        Entry withDirty(boolean value) {
-            return new Entry(id, path, value);
-        }
+    /** A change that was made, and the schedule it replaced. */
+    record Change(String what, Team before) {
     }
 
     Doc {
-        tabs = List.copyOf(tabs);
+        history = List.copyOf(history);
     }
 
-    /** Nothing open. */
-    static Doc initial() {
-        return new Doc(List.of(), NONE, null, "");
+    /** {@code team}, looked at on {@code today}, at minute {@code now}. */
+    static Doc of(Team team, int today, int now) {
+        return new Doc(team, today, today, now, Optional.empty(), NONE, List.of());
     }
 
-    /** The entry with {@code id}, or null if it has gone. */
-    Entry entry(long id) {
-        for (Entry e : tabs) {
-            if (e.id() == id) {
-                return e;
-            }
+    /** The day, reviewed. */
+    Review.Day review() {
+        return Review.of(team, day, today);
+    }
+
+    /**
+     * The visit the briefing is about: the selected one, if it needs someone, or else the first that does. Empty
+     * when the day is covered.
+     */
+    Optional<Review.Check> focus(Review.Day review) {
+        Optional<Review.Check> picked = selected.flatMap(review::check).filter(c -> !c.covered());
+        return picked.isPresent() ? picked : review.problems().stream().findFirst();
+    }
+
+    /** The fix being considered, if any. */
+    Optional<Review.Fix> fix(Review.Day review) {
+        return focus(review).filter(c -> chosen >= 0 && chosen < c.fixes().size()).map(c -> c.fixes().get(chosen));
+    }
+
+    Doc withDay(int value) {
+        return new Doc(team, value, today, now, Optional.empty(), NONE, history);
+    }
+
+    /** Pick out {@code id}, or put it back if it was already picked out. */
+    Doc toggled(String id) {
+        Optional<String> next = selected.filter(id::equals).isPresent() ? Optional.empty() : Optional.of(id);
+        return new Doc(team, day, today, now, next, NONE, history);
+    }
+
+    Doc deselected() {
+        return new Doc(team, day, today, now, Optional.empty(), chosen, history);
+    }
+
+    Doc withChosen(int value) {
+        return new Doc(team, day, today, now, selected, value, history);
+    }
+
+    /** The fix being considered, made: the schedule replaced, and the old one kept to undo to. */
+    Doc applied() {
+        Optional<Review.Fix> fix = fix(review());
+        if (fix.isEmpty()) {
+            return this;
         }
-        return null;
+        List<Change> next = new ArrayList<>(history);
+        next.add(new Change(fix.get().change(), team));
+        return new Doc(fix.get().after(), day, today, now, Optional.empty(), NONE, next);
     }
 
-    /** The document in front, or null. */
-    Entry front() {
-        return entry(active);
-    }
-
-    /** Every document with unsaved work, in tab order. */
-    List<Entry> unsaved() {
-        return tabs.stream().filter(Entry::dirty).toList();
-    }
-
-    /** Every open file, in tab order — what a session remembers. */
-    List<Path> files() {
-        return tabs.stream().map(Entry::path).toList();
-    }
-
-    Doc withTab(Entry entry) {
-        List<Entry> next = new ArrayList<>(tabs);
-        next.add(entry);
-        return new Doc(next, active, folder, status);
-    }
-
-    Doc without(long id) {
-        List<Entry> next = new ArrayList<>(tabs);
-        next.removeIf(e -> e.id() == id);
-        return new Doc(next, active == id ? NONE : active, folder, status);
-    }
-
-    /** Change one entry, whatever it currently is. A no-op on one that has gone. */
-    Doc withEntry(long id, UnaryOperator<Entry> change) {
-        List<Entry> next = new ArrayList<>(tabs.size());
-        for (Entry e : tabs) {
-            next.add(e.id() == id ? change.apply(e) : e);
+    /** The last change, unmade. */
+    Doc undone() {
+        if (history.isEmpty()) {
+            return this;
         }
-        return new Doc(next, active, folder, status);
-    }
-
-    Doc withActive(long id) {
-        return new Doc(tabs, id, folder, status);
-    }
-
-    Doc withFolder(Path value) {
-        return new Doc(tabs, active, value, status);
-    }
-
-    Doc withStatus(String value) {
-        return new Doc(tabs, active, folder, value);
+        Change last = history.getLast();
+        return new Doc(last.before(), day, today, now, Optional.empty(), NONE, history.subList(0, history.size() - 1));
     }
 }

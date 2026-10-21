@@ -8,13 +8,15 @@ Keep an entry short enough that it does not need editing, and delete it when it 
 
 ## Next
 
-- [ ] Decide what this application is. It starts as an editor because an editor reaches every seam; keep the parts
-      yours needs and delete the rest. `Recipes` is the place to start, since every part is one method there.
-- [ ] Replace the palette anchors in `Look.java` with the design's, measured in Oklab. See the note in that file
-      about which authored colours the construction can reproduce and which have to be declared.
+- [ ] Real data instead of `visits/Sample`: a team, its clinicians and its visits read from somewhere, and the
+      application's "today" and "now" taken from the clock rather than fixed at Tue 10:40.
+- [ ] The schedules list from the design (North team, South team, Pediatrics, Wound care), and the Week view.
+- [ ] Remember the day and the team shown between runs, in the framework's settings store.
+- [ ] A fix is checked against its own day only. Once resources are held exclusively in the solver, moving a visit
+      should be checked against the whole week as one plan, not by `Review` looking one slot at a time.
 
 ## Later
 
-- [ ] Automation coverage: `--automation=0` (or `-Dautomation=0`) opens a driving socket on a free port and prints it, and the landmarks in `Landmarks.java` are
-      already the names a script would use. One scripted run through the main path is worth more than several
-      unit tests of the view.
+- [ ] Drive times from addresses instead of one figure for the whole team (`Team.travel`).
+- [ ] "Right now" estimates arrival ("arrives about 10:52") from the earliest schedule the solver already returns.
+- [ ] The native build has not been tried since the editor was replaced.

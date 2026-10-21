@@ -1,106 +1,145 @@
 package dev.vexelray.scheduler.app;
 
-import dev.vexelray.scheduler.app.text.Markdown;
 import dev.vexelray.canvas.Color;
 import dev.vexelray.gui.core.Gui;
+import dev.vexelray.gui.core.Node;
+import dev.vexelray.gui.core.layout.LayoutEnums.AlignItems;
 import dev.vexelray.gui.core.layout.LayoutEnums.Direction;
 import dev.vexelray.gui.core.layout.Length;
-import dev.vexelray.gui.core.style.Role;
-import dev.vexelray.gui.widget.Cue;
-import dev.vexelray.gui.widget.SplitPane;
 import dev.vexelray.gui.widget.StatusBar;
 import dev.vexelray.gui.widget.TitleBar;
+import dev.vexelray.scheduler.app.visits.Review;
+import dev.vexelray.scheduler.app.visits.Team;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * The window: the framework's title bar, the navigator beside the open files, and a status line under both.
+ * The window: the framework's title bar; a header with the team and its days; the {@link Schedule} beside the
+ * {@link Briefing}; and a status line under them.
  *
  * <h2>It holds no state</h2>
  *
- * <p>{@link #show} takes a whole {@link Doc} and writes everything derived from it — the window title, the tab
- * headers, the status line — which is the rule worth keeping as this grows: a label that remembers a value can
- * disagree with the session, and a header that says a file is saved when it is not is the application lying.
+ * <p>{@link #show} takes a whole {@link Doc}, reviews it once, and writes everything derived from it. That is the
+ * rule worth keeping as this grows: a label that remembers a value can disagree with the schedule, and a status line
+ * that says a day is covered when it is not is the application lying — in a clinic, about compliance.
  *
  * <p>{@code show} is called from the committing thread, which is a worker. That is correct and is the framework's
- * own idiom: a prop written off the GUI thread is queued and applied by the next drain. What is <em>not</em>
- * allowed is the other direction — reading the model from inside the frame loop.
- *
- * <p>The title bar is the framework's. Chrome placement belongs to whoever owns the window, so that the screenshot
- * instrument in it means the same thing in every window on the desk; this application places the node and
- * supplies every colour in it through {@link Look}.
+ * own idiom: a prop written off the GUI thread is queued and applied by the next drain, and {@link Gui#batch} keeps a
+ * rebuild from being drawn half done. What is <em>not</em> allowed is the other direction — reading the model from
+ * inside the frame loop.
  */
 final class Ui {
 
-    /** The navigator's width on a first run. Type-relative, so it grows with the zoom like the text in it. */
-    private static final Length NAVIGATOR = Length.rem(16);
-
+    private final Gui gui;
+    private final Model model;
     private final TitleBar titleBar;
     private final StatusBar status;
-    private final Workspace workspace;
-    private final Navigator navigator;
-    private final Motion motion;
-    private final Color danger;
+    private final Node team;
+    private final Node days;
+    private final Node date;
+    private final List<Node> dayNodes = new ArrayList<>();
+    private final Schedule schedule;
+    private final Briefing briefing;
 
-    Ui(Gui gui, Motion motion, Model model, TitleBar titleBar) {
+    Ui(Gui gui, Model model, TitleBar titleBar) {
+        this.gui = gui;
+        this.model = model;
         this.titleBar = titleBar;
-        this.motion = motion;
-        this.danger = gui.theme().color(Role.DANGER);
+
+        team = words(gui, "", Type.BODY, Look.INK).bold();
+        days = gui.row().gap(Type.TIGHT).padding(Length.dp(3)).border(Length.dp(1), Look.RULE).corner(Type.ROUND);
+        date = words(gui, "", Type.MICRO, Look.FAINT).font(Type.MONO);
+        Node header = gui.row().width(Length.FILL).height(Length.rem(3.1f)).alignItems(AlignItems.CENTER)
+                .gap(Type.INSET).padding(Length.ZERO, Length.dp(16)).background(Look.CHROME)
+                .children(team, gui.box().width(Length.grow(1f)), days, date);
+
+        schedule = new Schedule(gui, model);
+        briefing = new Briefing(gui, model);
+        Node body = gui.row().width(Length.FILL).height(Length.grow(1f))
+                .children(schedule.node(), rule(gui, false), briefing.node());
 
         status = new StatusBar(gui)
-                .slot(Landmarks.STATUS_FILE, StatusBar.Side.LEFT, "")
-                .slot(Landmarks.STATUS_MESSAGE, StatusBar.Side.LEFT, "")
-                .slot(Landmarks.STATUS_POSITION, StatusBar.Side.RIGHT, "")
-                .minWidth(Landmarks.STATUS_POSITION, Length.rem(7));
+                .slot(Landmarks.STATUS_COUNT, StatusBar.Side.LEFT, "")
+                .slot(Landmarks.STATUS_STATE, StatusBar.Side.LEFT, "")
+                .slot(Landmarks.STATUS_WHERE, StatusBar.Side.RIGHT, "");
         gui.landmark(Landmarks.STATUS, status.node());
-        for (String slot : new String[] {Landmarks.STATUS_FILE, Landmarks.STATUS_MESSAGE, Landmarks.STATUS_POSITION}) {
+        for (String slot : new String[] {Landmarks.STATUS_COUNT, Landmarks.STATUS_STATE, Landmarks.STATUS_WHERE}) {
             gui.landmark(slot, status.slot(slot));
         }
 
-        // Markdown's colours are the theme's roles, and one of this application's own (Look.EMPHASIS). Resolved
-        // once, here, because a role resolves at the moment it is asked and the theme does not change under us.
-        Markdown.Style markup = new Markdown.Style(
-                gui.theme().color(Role.ACCENT),
-                gui.theme().color(Role.FAINT),
-                Look.EMPHASIS,
-                gui.theme().color(Role.ACCENT),
-                gui.theme().color(Role.DIM),
-                gui.theme().color(Role.INK),
-                gui.theme().color(Role.PANEL));
-
-        workspace = new Workspace(gui, model, motion, markup,
-                p -> status.text(Landmarks.STATUS_POSITION, "Ln " + p.line() + ", Col " + p.column()));
-        navigator = new Navigator(gui, motion);
-
-        SplitPane split = new SplitPane(gui, SplitPane.Orientation.SIDE_BY_SIDE, navigator.node(), workspace.node())
-                .size(NAVIGATOR);
-        split.node().width(Length.FILL).height(Length.grow(1f));
-
         gui.root().direction(Direction.COLUMN)
-                .background(gui.theme().color(Role.PAGE))
-                .children(titleBar.node(), split.node(), status.node());
+                .background(Look.THEME.color(dev.vexelray.gui.core.style.Role.PAGE))
+                .children(titleBar.node(), header, rule(gui, true), body, status.node());
     }
 
-    Workspace workspace() {
-        return workspace;
-    }
-
-    Navigator navigator() {
-        return navigator;
-    }
-
-    /** Draw the eye to the status line: something was refused or failed, and the message there says what. */
-    void alert() {
-        motion.cues.play(status.node(), Cue.ring(danger, 2));
-    }
-
-    /** Write everything derived from the session. One method taking the whole value, so no two fields can disagree. */
+    /** Write everything derived from the state. One method taking the whole value, so no two parts can disagree. */
     void show(Doc doc) {
-        Doc.Entry front = doc.front();
-        titleBar.title(front == null ? Scheduler.TITLE : front.title() + " — " + Scheduler.TITLE);
-        status.text(Landmarks.STATUS_FILE, front == null ? "" : front.title());
-        status.text(Landmarks.STATUS_MESSAGE, doc.status());
-        if (front == null) {
-            status.text(Landmarks.STATUS_POSITION, "");
+        Review.Day review = doc.review();
+        Team t = review.team();
+        gui.batch(() -> {
+            titleBar.title(t.name() + " · " + t.weekday(doc.day()) + " — " + Scheduler.TITLE);
+            team.text(t.name());
+            showDays(doc, t);
+            date.text(t.days().get(doc.day()));
+            schedule.show(doc, review);
+            briefing.show(doc, review);
+            int problems = review.problems().size();
+            status.text(Landmarks.STATUS_COUNT, review.checks().size() + " visits");
+            status.text(Landmarks.STATUS_STATE, problems == 0
+                    ? "all covered · all within credentials"
+                    : (review.checks().size() - problems) + " covered · " + problems + " need"
+                            + (problems == 1 ? "s" : "") + " you");
+            status.text(Landmarks.STATUS_WHERE, t.name() + " · " + t.days().get(doc.day()));
+        });
+    }
+
+    /** The day chips: one per day, the one shown filled, a day with something to decide marked amber. */
+    private void showDays(Doc doc, Team t) {
+        clear(dayNodes);
+        for (int d = 0; d < t.days().size(); d++) {
+            int day = d;
+            boolean shown = d == doc.day();
+            boolean attention = !Review.of(t, d, doc.today()).problems().isEmpty();
+            String name = (d == doc.today() ? "Today" : t.weekday(d).substring(0, 3));
+            Node chip = gui.row().alignItems(AlignItems.CENTER).gap(Length.dp(6)).padding(Length.dp(5), Length.dp(12))
+                    .corner(Length.dp(6)).background(shown ? Look.BLUE_PICKED : Color.TRANSPARENT).role("button");
+            if (attention) {
+                chip.append(gui.box().size(Length.dp(3), Length.rem(0.7f)).corner(Length.dp(2)).background(Look.AMBER));
+            }
+            chip.append(words(gui, name, Type.SMALL, shown ? Look.INK : Look.DIM).wordWrap(false).hitInert(true));
+            gui.onClick(chip, () -> model.day(day));
+            gui.landmark(Landmarks.day(t.days().get(d)), chip);
+            days.append(chip);
+            dayNodes.add(chip);
         }
-        workspace.retitle(doc);
+    }
+
+    // ---------------------------------------------------------------------------------------------- shared shapes
+
+    /** A run of text: wraps, unless told not to. */
+    static Node words(Gui gui, String text, Length size, Color color) {
+        return gui.text(text).font(Type.UI).textSize(size).textColor(color);
+    }
+
+    /** A section's small capitals: "RIGHT NOW". */
+    static Node caps(Gui gui, String text) {
+        return gui.text(text.toUpperCase()).font(Type.MONO).textSize(Type.MICRO).textColor(Look.FAINT)
+                .wordWrap(false);
+    }
+
+    /** A one-pixel rule between two regions: across a column, or down a row. */
+    static Node rule(Gui gui, boolean across) {
+        return across
+                ? gui.box().width(Length.FILL).height(Length.dp(1)).background(Look.RULE)
+                : gui.box().width(Length.dp(1)).height(Length.FILL).background(Look.RULE);
+    }
+
+    /** Remove every node in {@code nodes}, and forget them. */
+    static void clear(List<Node> nodes) {
+        for (Node n : nodes) {
+            n.remove();
+        }
+        nodes.clear();
     }
 }

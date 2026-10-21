@@ -90,6 +90,13 @@
             <version>${tactroller.version}</version>
         </dependency>
 
+        <!-- The solver: every sentence the schedule says stands on one of its checked answers. -->
+        <dependency>
+            <groupId>dev.vexelray.scheduler</groupId>
+            <artifactId>vexelray-scheduler-solver</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>

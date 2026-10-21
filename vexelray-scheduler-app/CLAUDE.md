@@ -1,8 +1,9 @@
 # Working in Scheduler
 
 Scheduler is a VexelRay desktop application, generated from `vexelray-framework`'s `vexel-desktop` template. It
-started as the template's reference application, a small tabbed text editor with a file navigator, and is being
-turned into something else. [README.md](README.md) is the tour: read its *How it is put together* section before
+started as the template's reference application, a small tabbed text editor, and is now a home-visit team's
+schedule that says what is going on with it in plain sentences, each standing on a checked answer from the solver
+module. The design is the "Scheduler Mockups" canvas. [README.md](README.md) is the tour: read its *How it is put together* section before
 changing anything, and `Recipes.java` before adding a part.
 
 ## Where things are
@@ -13,8 +14,9 @@ changing anything, and `Recipes.java` before adding a part.
   built in which phase.
 - **`Model.java` and `Doc.java`** hold all of the application's state, as one immutable value that is replaced, never
   mutated. `Ui.java` holds no state.
-- **Code with no `Gui` in it** goes in a sub-package with public types (as `text/` does), so it can be unit tested
-  without a window.
+- **Code with no `Gui` in it** goes in a sub-package with public types (as `visits/` does), so it can be unit tested
+  without a window. `visits/Review` is where the solver's answers become sentences; a sentence a person reads never
+  names a rule, a tag or a constraint.
 - **`Landmarks.java`** names everything an automation script may refer to. A new control a test needs to reach gets
   a landmark there, not a string literal.
 - **Icons** come from the suite's set, `dev.vexelray.gui.icons.Icon`, first. An icon it does not have, and only this
@@ -35,9 +37,8 @@ them even when a shortcut looks harmless:
   a GraalVM native image, and the framework's wiring is generated at compile time so that nothing needs reflection.
 - **Nothing in the frame loop allocates, logs or blocks.** No disk, no network, no locks there.
 - **Vulkan, the window and present stay on the main thread.** Handlers run on workers, and disk work goes to the
-  offload lane. README's *Threading, in one paragraph* is the whole model, and its two lock rules are written on
-  `Workspace`: nothing commits to the model while holding the workspace lock, and nothing reached from a model
-  listener takes it.
+  offload lane. README's *Threading, in one paragraph* is the whole model. Nothing holds a lock today; if something
+  comes to, nothing may commit to the model while holding it, and nothing reached from a model listener may take it.
 - **All input comes through tactroller.** No polling the OS keyboard, and no native listener of your own.
 - **Log through `sibarum.probe.Log`**, as `Log.of("vexelray-scheduler-app.<area>")`. stdout is for lines another program parses
   (`automation: localhost:<port>`), and for nothing else, including diagnostics.

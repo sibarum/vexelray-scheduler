@@ -2,10 +2,14 @@
 
 The VexelRay scheduler application.
 
-A VexelRay desktop application, generated from the `vexel-desktop` template: a small text editor with tabs, a file
-navigator and Markdown in colour. It is the reference implementation of this stack, so every seam the framework
-offers is wired in the tree you are reading — and it is a working editor, so it is also something to change into
-whatever you are actually building.
+A VexelRay desktop application, generated from the `vexel-desktop` template, that answers one question for a team
+of clinicians making house visits: *what's going on with my schedules?* It shows a day as one lane a clinician, a
+bar a visit, and beside it says in plain sentences whether every visit has someone qualified who can get there in
+time. When one does not, it says why, and offers ways to fix it that change nothing until you confirm. Each sentence
+stands on a checked answer from `vexelray-scheduler-solver`; nobody using it sees a rule, a tag or a constraint.
+
+For now it shows a made-up week of one team (`visits/Sample.java`). The design it follows is the "Scheduler Mockups"
+canvas.
 
 ## Run it
 
@@ -14,15 +18,25 @@ mvn compile exec:exec
 ```
 
 `exec:exec` rather than `exec:java`, so native access can be enabled for Panama FFM. The window comes up where you
-last left it, at 1180x720 the first time, with the folder and the files you last had open. The first time,
-the navigator shows the working directory.
+last left it, at 1440x900 the first time, on the sample team's "today". The solver module has to be installed
+first (`mvn install -pl vexelray-scheduler-solver` from the parent), or build from the parent.
 
 ```
-mvn compile exec:exec "-Dapp.args=C:/notes"               # open a folder (or files) named on the command line
 mvn compile exec:exec -Dapp.args=120                      # 120 frames and quit
 mvn compile exec:exec -Dautomation=0                      # a driving socket on a free port (see Taking a screenshot)
-mvn test                                                  # the model, the file policy, Markdown, the real tree headless
+mvn test                                                  # the review's sentences, and the real tree headless
 ```
+
+## The demo, in four clicks
+
+1. **Today** (Tuesday) is covered: "Everything today is covered.", who is where right now, and a look at the week:
+   Thursday has a visit that needs you.
+2. **Click a visit** (Okafor, on Dana's lane): the panel under the lanes says why Dana has it — each thing it needs,
+   and getting there in time — and who else could take it, and why not.
+3. **Thu**, marked amber: Mrs. Alvarez's wound-care visit has nobody who can take it, because the one wound nurse
+   working is at a clinic that afternoon and the other is off. Two ways to fix it: move it to Friday at 10 am, when
+   Dana is free and the visit may still happen, or ask Priya to come in.
+4. **Pick a fix**, then confirm: the day turns covered, and the change can be undone (the button, or Ctrl+Z).
 
 ## A native executable
 
@@ -72,23 +86,15 @@ groups the button with other Java programs, and pinning it pins Java. The native
 
 ## Using it
 
+Everything is a click: a day in the header (amber marks a day with something to decide), a visit's bar to have it
+explained and again to put it back, a way to fix it to see what would move, and the button under that to make the
+change.
+
 | Keys | Does |
 | --- | --- |
-| Ctrl+L | the path bar: type a folder to show it, a file to open it, a new name to create it; Enter goes |
-| Ctrl+S | save |
-| Ctrl+W | close the tab (asks if it is unsaved) |
-| Ctrl+Tab, Ctrl+PageDown / Ctrl+Shift+Tab, Ctrl+PageUp | next / previous tab |
-| Ctrl+Shift+E | put the keyboard in the navigator |
-| Ctrl+F | find in the file (Enter / Shift+Enter step, Escape closes) |
-| Ctrl+Z / Ctrl+Y | undo / redo |
+| Ctrl+Z | undo the last change |
+| Escape | put the picked-out visit back |
 | Ctrl+= / Ctrl+- / Ctrl+0 | zoom |
-
-Selecting a file in the navigator opens it — a click, or walking the tree with the arrow keys, which keep the
-keyboard in the tree. A tab's menu has Save, Close, Close others, Close all and Reveal in navigator. A bullet in
-front of a tab's name means unsaved changes; closing anything unsaved asks first, and so does quitting.
-
-There is no file dialog, by choice: the path bar is the whole of "open", and it works the same in a test as in use. The
-framework brings native pickers (`Dialogs.openFile`, `openFolder`, `saveFile`) for a project that wants them.
 
 ## How it is put together
 
@@ -97,14 +103,11 @@ Read these in this order.
 | File | What belongs in it |
 | --- | --- |
 | `Recipes.java` | **what this application builds.** One `@Provides` method per part; `SchedulerAppWiring`, which builds them in order, is generated from it while the project compiles. A part's phase is the latest phase of anything it takes, so there is none to declare. New parts go here. |
-| `Doc.java`, `Model.java` | the shape of the session — which files, which in front, which unsaved, which folder — as one immutable value, changed only by functions of the current value, committed through atchung's `State`. |
-| `Ui.java` | the window. Holds no state; `show(Doc)` writes everything derived from the session. |
-| `Workspace.java`, `Buffer.java` | the tab bar and one `Buffer` per tab: a `TextField`, its spans, its save bookkeeping. |
-| `Navigator.java`, `FolderSource.java` | the path bar and the file tree, over the disk, read lazily off the frame loop. |
-| `Actions.java` | every command, the questions some of them ask, and the close gate. |
-| `Session.java` | what comes back next time, in the framework's one settings store. |
-| `Motion.java` | the one tempo every widget moves at, on the framework's clock. |
-| `text/TextFile.java`, `text/Markdown.java` | **code with no `Gui` in it**, in a sub-package with public types: the policy between bytes and text, and Markdown as spans. Testable in milliseconds; this is where a real application's non-GUI code goes. |
+| `Doc.java`, `Model.java` | the state — the schedule, the day shown, the visit picked out, the fix being considered, and every change made with the schedule it replaced — as one immutable value, changed only by functions of the current value, committed through atchung's `State`. |
+| `Ui.java` | the window: the header and its days, the status line. Holds no state; `show(Doc)` reviews the day once and writes everything derived from it. |
+| `Schedule.java` | the lanes: a bar a visit, floated by percentage of the day, and the panel explaining the visit picked out. |
+| `Briefing.java` | "What's going on": the day in a sentence; right now and later this week, or the visit that needs you and the ways to fix it. |
+| `visits/` | **code with no `Gui` in it**, in a sub-package with public types: clinicians, visits, needs, the sample team, and `Review`, which asks the solver about a day and says what it answered in sentences. Testable in milliseconds. |
 
 `Scheduler.java` is the entry point and the constants, and nothing else. The application edge — input, the
 clipboard, window memory, the clock, the frame loop with its wakes and its pacing, the dialogs, the command line and
@@ -129,25 +132,28 @@ Open `target/generated-sources/annotations/.../SchedulerAppWiring.java` after a 
 
 ### Threading, in one paragraph
 
-The GUI loop runs on its own thread. Every handler — a click, a key, a submitted path — runs on a worker, and every
-read and write of a file runs on the offload lane, so a slow disk is never a frozen window. Workers meet at `Model`,
+The GUI loop runs on its own thread. Every handler — a click, a key — runs on a worker. Workers meet at `Model`,
 whose compare-and-set puts concurrent changes in an order. A listener registered with `Model.onChange` fires on the
-committing thread; writing a node's props from there is correct, because a prop written off the GUI thread is applied
-by the next drain. Two rules keep it deadlock-free, and both are written on `Workspace`: nothing commits to the model
-while holding the workspace's lock, and nothing a model listener reaches takes it. Nothing inside the frame loop
-reads the model.
+committing thread, one delivery at a time; `Ui.show` runs the review there (the solver's work for a day is a few
+milliseconds) and rebuilds the lanes and the briefing inside `Gui.batch`, which is correct because a prop written off
+the GUI thread is applied by the next drain. Nothing holds a lock, and nothing inside the frame loop reads the model.
 
-### Spans
+### How a day is reviewed
 
-`Markdown.spans` is a pure function from text to `Span`s — foreground, background, underline — and `Buffer` runs it
-on a worker after each edit and hands the result to the field. The text is never changed; the field draws the
-colours and moves each span with its text as you type. A `.txt` file gets none.
+`visits/Review` turns a day into questions the solver can answer, and its answers back into sentences:
 
-### Motion
+- **Can this clinician fit this visit in?** Their visits and time away that day, at their booked times, with the
+  team's drive between each and the next, are a temporal network. No schedule means a cycle, and the constraint in
+  it that touches the visit names what is in the way: "is with I. Pena at 10:15", "is at the Pediatrics clinic".
+- **May this clinician take it?** A `Plan`: a visit's needs are `require` rules, a day off and a full diary are
+  `forbid` rules. `Plan.excluding` gives back the rules that rule someone out, which become "isn't certified in
+  wound care" and "is off Thursday".
+- **Who could take a visit nobody has?** The `Assigner`, which finds someone or returns the shortage that proves
+  there is nobody.
+- **What would fix it?** Someone eligible to give it to; the first time in the visit's window when someone working
+  can take it, nothing else moving; anyone whose only reason is a day off, asked to come in.
 
-The widgets animate only when handed a ramp, and without one they cut — so leaving the clock out costs no error,
-only a stiffer window. `Motion` makes the ramps from the framework's clock: the tabs slide, folders open, and a cue
-rings a tab you asked to open that was already open, or the status line when something was refused.
+Everything the solver returns has been through its checker first, so a sentence is never a guess.
 
 ## The stack
 
@@ -205,11 +211,22 @@ Say what the picture is *of* with options, and `ottermate` sets it first and sto
 
 ```
 ottermate --zoom 1.5 --dpi 2 --size 1600x900 shot big.png --launch ...   # pixels
-ottermate --size 36emx20em shot smallest.png --launch ...                # the minimum, in em
+ottermate --size 60emx34em shot smallest.png --launch ...                # the minimum, in em
 ```
 
-The landmarks in `Landmarks.java` are the names a script uses: `await status.file notes.md` waits for a file to be in
-front, and `await path <folder>` for the navigator to be showing one. `ottermate help` lists every verb.
+The landmarks in `Landmarks.java` are the names a script uses: `day.thu`, `visit.okafor`, `fix.1`, `confirm`,
+`undo`, and `headline`, whose name is the briefing's first sentence, so `await headline needs` waits for a day with
+something to decide and `await headline covered` for one without. The demo's whole path, as a script:
+
+```
+click day.thu
+await headline needs
+click fix.1
+click confirm
+await headline covered
+```
+
+`ottermate help` lists every verb.
 
 ## Logging
 
@@ -222,7 +239,7 @@ The framework configures logging for you, before anything else runs, and the def
 | driven by `ottermate` or `-Dautomation` | debug | `…/vexelray-scheduler-app.log`, **trace**, with a probe trace beside it |
 | a native image | warnings | `~/.vexelray-scheduler-app/logs/vexelray-scheduler-app.log`, info |
 
-Write to it with a logger, not `System.out` — `Actions` does, as `vexelray-scheduler-app.files`:
+Write to it with a logger, not `System.out`, named for its area of this application:
 
 ```java
 private static final Log LOG = Log.of("vexelray-scheduler-app.files");   // sibarum.probe.Log
