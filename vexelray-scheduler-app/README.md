@@ -31,8 +31,8 @@ mvn test                                                  # the review's sentenc
 
 1. **Today** (Tuesday) is covered: "Everything today is covered.", who is where right now, and a look at the week:
    Thursday has a visit that needs you.
-2. **Click a visit** (Okafor, on Dana's lane): the panel under the lanes says why Dana has it — each thing it needs,
-   and getting there in time — and who else could take it, and why not.
+2. **Click a visit** (Okafor, on Dana's lane): the briefing says why Dana has it — each thing it needs, and getting
+   there in time — and who else could take it, and why not. Click it again, or Escape, to put it back.
 3. **Thu**, marked amber: Mrs. Alvarez's wound-care visit has nobody who can take it, because the one wound nurse
    working is at a clinic that afternoon and the other is off. Two ways to fix it: move it to Friday at 10 am, when
    Dana is free and the visit may still happen, or ask Priya to come in.
@@ -105,8 +105,9 @@ Read these in this order.
 | `Recipes.java` | **what this application builds.** One `@Provides` method per part; `SchedulerAppWiring`, which builds them in order, is generated from it while the project compiles. A part's phase is the latest phase of anything it takes, so there is none to declare. New parts go here. |
 | `Doc.java`, `Model.java` | the state — the schedule, the day shown, the visit picked out, the fix being considered, and every change made with the schedule it replaced — as one immutable value, changed only by functions of the current value, committed through atchung's `State`. |
 | `Ui.java` | the window: the header and its days, the status line. Holds no state; `show(Doc)` reviews the day once and writes everything derived from it. |
-| `Schedule.java` | the lanes: a bar a visit, floated by percentage of the day, and the panel explaining the visit picked out. |
-| `Briefing.java` | "What's going on": the day in a sentence; right now and later this week, or the visit that needs you and the ways to fix it. |
+| `Schedule.java` | the lanes: a bar a visit, floated by percentage of the day. A day is a page, kept while it is shown and changed in place. |
+| `Briefing.java` | "What's going on": the day in a sentence; under it right now and later this week, or the visit picked out explained, or the visit that needs you and the ways to fix it. |
+| `Motion.java` | how anything on screen changes, which is never in one frame. See *Motion* below. |
 | `visits/` | **code with no `Gui` in it**, in a sub-package with public types: clinicians, visits, needs, the sample team, and `Review`, which asks the solver about a day and says what it answered in sentences. Testable in milliseconds. |
 
 `Scheduler.java` is the entry point and the constants, and nothing else. The application edge — input, the
@@ -135,8 +136,42 @@ Open `target/generated-sources/annotations/.../SchedulerAppWiring.java` after a 
 The GUI loop runs on its own thread. Every handler — a click, a key — runs on a worker. Workers meet at `Model`,
 whose compare-and-set puts concurrent changes in an order. A listener registered with `Model.onChange` fires on the
 committing thread, one delivery at a time; `Ui.show` runs the review there (the solver's work for a day is a few
-milliseconds) and rebuilds the lanes and the briefing inside `Gui.batch`, which is correct because a prop written off
-the GUI thread is applied by the next drain. Nothing holds a lock, and nothing inside the frame loop reads the model.
+milliseconds) and brings the lanes and the briefing up to date inside `Gui.batch`, which is correct because a prop
+written off the GUI thread is applied by the next drain. Motion runs on the clock's timeline and writes props the same
+way. The only locks are `Motion`'s, each guarding one animated value, and nothing commits to the model while holding
+one. Nothing inside the frame loop reads the model.
+
+### Motion
+
+**Nothing on screen changes in a single frame.** Every change the window makes is one of five, and `Motion` has an
+instrument for each:
+
+| A change | How it is drawn |
+| --- | --- |
+| a colour: a bar picked out, a day chip, a fix chosen | blended in Oklab by the stack's `Fades`, for every node, with nothing to call |
+| a node moved: a bar to another lane, a card pushed down | slid from where it was drawn by the stack's `Transitions` (`Motion.follow`) |
+| a node arriving: a bar, the confirmation card, the "Needs someone" lane | `Motion.appear`: up from nothing, rising a little |
+| a node going | `Motion.leave`: down to nothing first, then removed; whatever was below it slides up |
+| a label's words | a `Motion.Label`: dips out, changes, comes back |
+
+A region whose contents are replaced whole — the day's lanes, the briefing's page — is a `Motion.Stage`: the old
+page fades out where it stands, then the new one fades in. The zoom keys glide. The focus ring's fade and the wheel's
+glide are the framework's own.
+
+Three things are designed out rather than animated, because the stack draws them in one frame. **Scrollbars**: one
+appears the moment something overflows and narrows what it scrolls, so the lanes never scroll and every box that
+can be smaller than its contents is `Ui.still` (no scrolling, clipped). **Scrolling into view**, which jumps, so
+nothing scrolls by itself. **Border widths**, so a picked-out bar is marked by colour alone.
+
+**Checking it.** A transition is over in a fifth of a second, too fast for a screenshot to catch. Slow everything
+down, photograph a burst, and look for a step between two frames that is far bigger than the steps either side:
+
+```
+mvn compile exec:exec -Dautomation=0 "-Dapp.jvmArgs=-Dscheduler.slowmo=12"
+```
+
+Slide steps run in a long series of similar sizes; a jump stands alone. The two things slow motion does not slow
+are the framework's: the focus ring (120 ms) and the wheel.
 
 ### How a day is reviewed
 

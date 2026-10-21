@@ -5,7 +5,9 @@ import dev.vexelray.framework.api.Provides;
 import dev.vexelray.framework.shell.Appearance;
 import dev.vexelray.gui.core.Gui;
 import dev.vexelray.gui.core.layout.Length;
+import dev.vexelray.gui.krono.KronoGui;
 import dev.vexelray.gui.widget.TitleBar;
+import sibarum.kronometer.anim.Ease;
 import sibarum.tactroller.api.Key;
 import sibarum.tactroller.api.Modifier;
 
@@ -55,28 +57,57 @@ final class Recipes {
      * every handler is. The first drawing is done here, since nothing has been committed yet.
      */
     @Provides
-    Ui ui(Gui gui, Model model, TitleBar titleBar) {
-        Ui ui = new Ui(gui, model, titleBar);
+    Ui ui(Gui gui, Model model, TitleBar titleBar, Motion motion) {
+        Ui ui = new Ui(gui, model, titleBar, motion);
         model.onChange(ui::show);
         ui.show(model.doc());
-        shortcuts(gui, model);
+        shortcuts(gui, model, motion);
         return ui;
     }
 
     /**
+     * How anything on screen changes: the paint and layout motion attached to the {@code Gui}, on the framework's
+     * clock, before the first widget exists, so there is no node that was made before things started moving.
+     */
+    @Provides
+    Motion motion(Gui gui, KronoGui krono) {
+        return new Motion(gui, krono);
+    }
+
+    /** One zoom step: what the framework's own steps are. */
+    private static final double ZOOM_STEP = 1.25;
+
+    /**
      * Ctrl+Z undoes the last change; Escape puts the picked-out visit back; Ctrl+= / Ctrl+- / Ctrl+0 zoom.
      *
-     * <p>An application decision, which is why it is here. <b>How far the zoom goes is not</b>: that is
-     * {@code Appearance.ZoomRange}, applied by the framework before the first widget.
+     * <p>An application decision, which is why it is here. The zoom glides rather than stepping, since a step
+     * re-lays the whole window in one frame; a step taken mid-glide counts from where the glide is heading, so
+     * three presses are three steps however fast they come. <b>How far the zoom goes is not decided here</b>: that
+     * is {@code Appearance.ZoomRange}, which the framework clamps every value written to.
      */
-    private static void shortcuts(Gui gui, Model model) {
+    private static void shortcuts(Gui gui, Model model, Motion motion) {
         gui.shortcut(Key.Z, model::undo, Modifier.CONTROL);
         gui.shortcut(Key.ESCAPE, model::deselect);
-        gui.shortcut(Key.EQUAL, gui::zoomIn, Modifier.CONTROL);
-        gui.shortcut(Key.MINUS, gui::zoomOut, Modifier.CONTROL);
-        gui.shortcut(Key.DIGIT_0, gui::resetZoom, Modifier.CONTROL);
-        gui.shortcut(Key.NUMPAD_ADD, gui::zoomIn, Modifier.CONTROL);
-        gui.shortcut(Key.NUMPAD_SUBTRACT, gui::zoomOut, Modifier.CONTROL);
-        gui.shortcut(Key.NUMPAD_0, gui::resetZoom, Modifier.CONTROL);
+        Motion.Glide zoom = motion.glide(gui.zoom().value(), v -> gui.zoom((float) v), Motion.CHANGE,
+                Ease.OUT_CUBIC);
+        // The window's zoom is the framework's too (it brings back last run's, and clamps), so at rest it is read.
+        Runnable in = () -> {
+            zoom.resting(gui.zoom().value());
+            zoom.to(zoom.target() * ZOOM_STEP);
+        };
+        Runnable out = () -> {
+            zoom.resting(gui.zoom().value());
+            zoom.to(zoom.target() / ZOOM_STEP);
+        };
+        Runnable reset = () -> {
+            zoom.resting(gui.zoom().value());
+            zoom.to(1d);
+        };
+        gui.shortcut(Key.EQUAL, in, Modifier.CONTROL);
+        gui.shortcut(Key.MINUS, out, Modifier.CONTROL);
+        gui.shortcut(Key.DIGIT_0, reset, Modifier.CONTROL);
+        gui.shortcut(Key.NUMPAD_ADD, in, Modifier.CONTROL);
+        gui.shortcut(Key.NUMPAD_SUBTRACT, out, Modifier.CONTROL);
+        gui.shortcut(Key.NUMPAD_0, reset, Modifier.CONTROL);
     }
 }

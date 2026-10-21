@@ -103,6 +103,7 @@ final class Look {
     /** Needs your decision. */
     static final Color AMBER = Color.rgb(0xe8a85c);
     static final Color AMBER_GROUND = Color.rgb(0x2a2014);
+    static final Color AMBER_PICKED = Color.rgb(0x3d2c17);
     static final Color AMBER_LANE = Color.rgb(0x1a160f);
     static final Color AMBER_TEXT = Color.rgb(0xf3d9a8);
     static final Color AMBER_SOFT = Color.rgb(0xe3cfa9);
