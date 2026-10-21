@@ -1,1 +1,70 @@
+# ---- Maven ------------------------------------------------------------------------
+# Build output, in every module at any depth. A Java package named `target` under src/
+# is source, not build output.
 target/
+!**/src/**/target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.flattened-pom.xml
+
+# ---- Java -------------------------------------------------------------------------
+*.class
+hs_err_pid*.log
+replay_pid*.log
+*.hprof
+*.jfr
+
+# ---- Lean -------------------------------------------------------------------------
+# lake's build tree and fetched packages. lake-manifest.json is kept: it pins them.
+.lake/
+
+# ---- Running the app --------------------------------------------------------------
+# Automation captures and scratch class-path dumps. Not a blanket *.png: that would
+# also hide docs/ screenshots and the icons' sources.
+capture*.png
+cp.txt
+cp-*.txt
+
+# ---- Native builds ----------------------------------------------------------------
+# All land in target/ already; these are what a run from a developer prompt can leave
+# beside it.
+*.res
+*.obj
+*.pdb
+*.ilk
+
+# ---- Editors and IDEs -------------------------------------------------------------
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.project
+.classpath
+.settings/
+.factorypath
+.apt_generated/
+nbproject/
+nbbuild/
+nbactions.xml
+*.swp
+*.swo
+*~
+
+# ---- Operating systems ------------------------------------------------------------
+.DS_Store
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ---- Agents -----------------------------------------------------------------------
+# Local sessions, worktrees and settings, as in every sibling repository.
+.claude/
