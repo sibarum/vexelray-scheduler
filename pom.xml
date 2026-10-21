@@ -15,6 +15,10 @@
     <modules>
         <!-- The desktop application, generated from vexelray-framework-template's vexel-desktop template. -->
         <module>vexelray-scheduler-app</module>
+        <!-- The interval constraint solver: JDK-only, so it builds and tests with no window and no stack. -->
+        <module>vexelray-scheduler-solver</module>
+        <!-- Lean proofs about the solver, in src/main/lean; its test runs lake, so the proofs gate the build. -->
+        <module>vexelray-scheduler-proofs</module>
     </modules>
 
     <!-- What every module builds against. The stack's versions live here so the modules cannot disagree about
@@ -29,4 +33,24 @@
         <tactroller.version>1.2-SNAPSHOT</tactroller.version>
         <junit.version>5.11.4</junit.version>
     </properties>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>3.13.0</version>
+                    <configuration>
+                        <release>${maven.compiler.release}</release>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>3.5.2</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
 </project>

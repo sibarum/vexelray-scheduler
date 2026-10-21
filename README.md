@@ -6,6 +6,8 @@ module names its own dependencies and plugins.
 | Module | What it is |
 | --- | --- |
 | [vexelray-scheduler-app](vexelray-scheduler-app) | The desktop application. Its [README](vexelray-scheduler-app/README.md) and [CLAUDE.md](vexelray-scheduler-app/CLAUDE.md) are the guide to working in it |
+| [vexelray-scheduler-solver](vexelray-scheduler-solver) | The interval constraint solver. JDK-only, by rule: no graphics, no stack, no reflection |
+| [vexelray-scheduler-proofs](vexelray-scheduler-proofs) | Lean proofs about the solver, in `src/main/lean`. Its one test runs `lake build` and an axiom check, so it needs [elan](https://github.com/leanprover/elan) installed |
 
 ```bash
 mvn install

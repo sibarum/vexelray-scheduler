@@ -1,0 +1,14 @@
+name = "SchedulerProofs"
+version = "0.1.0"
+defaultTargets = ["SchedulerProofs"]
+
+[leanOptions]
+pp.unicode.fun = true # pretty-prints `fun a ↦ b`
+relaxedAutoImplicit = false
+
+# Core Lean only, so a first build takes seconds. Mathlib is a [[require]] away, as in the sibling proof
+# repositories (name = "mathlib", scope = "leanprover-community", rev = "v4.33.0"), at the price of
+# `lake exe cache get` and a few gigabytes under .lake.
+
+[[lean_lib]]
+name = "SchedulerProofs"
