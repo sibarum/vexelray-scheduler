@@ -1,1 +1,2 @@
-import SchedulerProofs.Difference
+import SchedulerProofs.Network
+import SchedulerProofs.Checker
