@@ -29,7 +29,7 @@ import java.util.Set;
  * <p>Each day is drawn once, as a page, and changed in place while it is shown: a bar is a node for the life of its
  * visit on that day, so picking it out is a change of colour, giving it to someone else is the same bar moving to
  * their lane, and a visit leaving the day is that bar fading out. Showing another day puts that day's page on the
- * stage over this one. Every one of those is a change {@link Motion} knows how to make without a jump.
+ * stage in place of this one. The framework draws every one of those without a jump; see {@link Motion}.
  *
  * <p>Bars are floating children of their lane, placed by percentage of the day, so the lanes stretch with the window
  * and nothing is measured. Each is a real node with a click handler and a landmark ({@code visit.okafor}), so a
@@ -96,10 +96,10 @@ final class Schedule {
         String key = "day:" + doc.day();
         if (page == null || !stage.showing(key)) {
             page = new Page(doc, team);
-            page.update(doc, review, false);
+            page.update(doc, review);
             stage.show(key, page.node);
         } else {
-            page.update(doc, review, true);
+            page.update(doc, review);
         }
     }
 
@@ -155,11 +155,10 @@ final class Schedule {
                 lanes.put(c.name(), lane);
                 node.append(row(name, Ui.caps(gui, String.join(" · ", c.credentials())), lane, Color.TRANSPARENT));
             }
-            motion.follow(node);
         }
 
-        /** Bring the page to {@code review}; {@code live} when it is already on screen, so arrivals fade in. */
-        void update(Doc doc, Review.Day review, boolean live) {
+        /** Bring the page to {@code review}: what is new arrives, what has gone leaves, and the rest is changed in place. */
+        void update(Doc doc, Review.Day review) {
             Team team = review.team();
             int day = doc.day();
 
@@ -172,9 +171,6 @@ final class Schedule {
                 needs = row(Ui.words(gui, "Needs someone", Type.BODY, Look.AMBER_TEXT).bold().wordWrap(false),
                         countNode, needsLane, Look.AMBER_LANE);
                 node.insert(needs, 0);
-                if (live) {
-                    motion.appear(needs);
-                }
             }
             if (needsCount != null) {
                 needsCount.set(nobody.size() == 1 ? "1 VISIT" : nobody.size() + " VISITS");
@@ -196,9 +192,6 @@ final class Schedule {
                     bar = bar(v);
                     bars.put(v.id(), bar);
                     lane.append(bar.box);
-                    if (live) {
-                        motion.appear(bar.box);
-                    }
                 } else if (!bar.lane.equals(laneKey)) {
                     // The same bar, in another lane: the move is a slide, from where it was drawn.
                     bar.lane = laneKey;
@@ -213,14 +206,14 @@ final class Schedule {
             for (var it = bars.entrySet().iterator(); it.hasNext(); ) {
                 var e = it.next();
                 if (!here.contains(e.getKey())) {
-                    motion.leave(e.getValue().box);
+                    e.getValue().box.remove();
                     it.remove();
                 }
             }
             raiseLines();
 
             if (nobody.isEmpty() && needs != null) {
-                motion.leave(needs);
+                needs.remove();
                 lines.remove(needsLane);
                 needs = null;
                 needsLane = null;

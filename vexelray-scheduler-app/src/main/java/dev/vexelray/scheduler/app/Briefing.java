@@ -48,7 +48,7 @@ final class Briefing {
 
     /** What is on stage, kept up to date in place until the stage shows something else. */
     private interface Page {
-        void update(Doc doc, Review.Day review, boolean live);
+        void update(Doc doc, Review.Day review);
     }
 
     Briefing(Gui gui, Model model, Motion motion) {
@@ -74,7 +74,6 @@ final class Briefing {
                 .gap(Length.dp(16)).scroll(false, true).clip(true)
                 .children(top, gui.column().width(Length.FILL).gap(Type.GAP).children(headlineNode, detailNode),
                         region);
-        motion.follow(node);
     }
 
     Node node() {
@@ -112,10 +111,10 @@ final class Briefing {
                 page = day(root, doc, review);
             }
             history(root, doc);
-            page.update(doc, review, false);
+            page.update(doc, review);
             stage.show(key, root);
         } else {
-            page.update(doc, review, true);
+            page.update(doc, review);
         }
     }
 
@@ -138,7 +137,7 @@ final class Briefing {
                 root.append(Ui.words(gui, line, Type.BODY, Look.SOFT).width(Length.FILL));
             }
         }
-        return (d, r, live) -> {
+        return (d, r) -> {
         };
     }
 
@@ -170,7 +169,7 @@ final class Briefing {
         }
         root.append(gui.text("Checked against " + review.team().name() + "'s visit rules").font(Type.MONO)
                 .textSize(Type.MICRO).textColor(Look.FAINT).wordWrap(false));
-        return (d, r, live) -> {
+        return (d, r) -> {
         };
     }
 
@@ -218,7 +217,7 @@ final class Briefing {
         }
 
         @Override
-        public void update(Doc doc, Review.Day review, boolean live) {
+        public void update(Doc doc, Review.Day review) {
             for (int i = 0; i < options.size(); i++) {
                 boolean chosen = i == doc.chosen();
                 options.get(i).background(chosen ? Look.BLUE_GROUND : Look.CARD)
@@ -228,14 +227,11 @@ final class Briefing {
             if (fix.isPresent() && preview == null) {
                 preview = preview(fix.get());
                 root.insert(preview, slot);
-                if (live) {
-                    motion.appear(preview);
-                }
             } else if (fix.isPresent()) {
                 change.set(fix.get().change());
                 confirmLabel.set(fix.get().title());
             } else if (preview != null) {
-                motion.leave(preview);
+                preview.remove();
                 preview = null;
             }
         }

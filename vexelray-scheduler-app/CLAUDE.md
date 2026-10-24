@@ -44,9 +44,9 @@ them even when a shortcut looks harmless:
   (`automation: localhost:<port>`), and for nothing else, including diagnostics.
 - **Nothing appears, moves or grows on hover**, and only command keys auto-repeat.
 - **Nothing on screen changes in a single frame.** Keep nodes and change them; never rebuild what is on screen. A
-  colour fades and a move slides by themselves; an arrival goes through `Motion.appear`, a departure through
-  `Motion.leave`, changed words through a `Motion.Label`, a replaced region through a `Motion.Stage`. Never animate
-  a size inside a followed region (two clocks), never let a box that changes grow a scrollbar (`Ui.still`), never
+  colour fades, a move slides, an append arrives and a `remove()` fades out by themselves (the framework's motion,
+  in every window); changed words go through a `Motion.Label`, a replaced region through a `Motion.Stage`. Never
+  animate a size (two clocks), never let a box that changes grow a scrollbar (`Ui.still`), never
   `scrollIntoView`. README's *Motion* says how to check it in slow motion.
 - **A compile error beats a startup error beats a runtime error.** Prefer the check that fails earliest.
 - **No sealed `switch` and no `default` that throws.** Turn it into a method on the type, or a sink.

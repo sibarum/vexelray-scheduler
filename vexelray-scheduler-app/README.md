@@ -143,35 +143,37 @@ one. Nothing inside the frame loop reads the model.
 
 ### Motion
 
-**Nothing on screen changes in a single frame.** Every change the window makes is one of five, and `Motion` has an
-instrument for each:
+**Nothing on screen changes in a single frame.** Every change the window makes is one of five. The framework draws
+the first four in every window it builds, with nothing to call; `Motion` has the fifth:
 
 | A change | How it is drawn |
 | --- | --- |
-| a colour: a bar picked out, a day chip, a fix chosen | blended in Oklab by the stack's `Fades`, for every node, with nothing to call |
-| a node moved: a bar to another lane, a card pushed down | slid from where it was drawn by the stack's `Transitions` (`Motion.follow`) |
-| a node arriving: a bar, the confirmation card, the "Needs someone" lane | `Motion.appear`: up from nothing, rising a little |
-| a node going | `Motion.leave`: down to nothing first, then removed; whatever was below it slides up |
+| a colour: a bar picked out, a day chip, a fix chosen | blended by the framework (`Fades`) |
+| a node moved: a bar to another lane, a card pushed down | slid from where it was drawn by the framework (`Transitions`) |
+| a node arriving: a bar, the confirmation card, the "Needs someone" lane | appended or inserted; the framework (`Presence`) brings it up from nothing, rising a little |
+| a node going | `remove()`; the framework fades it where it stands, then whatever was below it slides up |
 | a label's words | a `Motion.Label`: dips out, changes, comes back |
 
-A region whose contents are replaced whole — the day's lanes, the briefing's page — is a `Motion.Stage`: the old
-page fades out where it stands, then the new one fades in. The zoom keys glide. The focus ring's fade and the wheel's
-glide are the framework's own.
+A region whose contents are replaced whole — the day's lanes, the briefing's page — is a `Motion.Stage`, which
+appends the new page and removes the old one together. The framework reads that as a replacement: the old page is
+lifted out where it stands and fades, then the new one comes up. The zoom keys glide (`Motion.Glide` over
+`Gui.zoom(float)`). The focus ring's fade and the wheel's glide are the framework's too.
 
 Three things are designed out rather than animated, because the stack draws them in one frame. **Scrollbars**: one
 appears the moment something overflows and narrows what it scrolls, so the lanes never scroll and every box that
 can be smaller than its contents is `Ui.still` (no scrolling, clipped). **Scrolling into view**, which jumps, so
 nothing scrolls by itself. **Border widths**, so a picked-out bar is marked by colour alone.
 
-**Checking it.** A transition is over in a fifth of a second, too fast for a screenshot to catch. Slow everything
-down, photograph a burst, and look for a step between two frames that is far bigger than the steps either side:
+**Checking it.** A transition is over in a fifth of a second, too fast for a screenshot to catch. Slow down what can
+be slowed, photograph a burst, and look for a step between two frames that is far bigger than the steps either side:
 
 ```
 mvn compile exec:exec -Dautomation=0 "-Dapp.jvmArgs=-Dscheduler.slowmo=12"
 ```
 
-Slide steps run in a long series of similar sizes; a jump stands alone. The two things slow motion does not slow
-are the framework's: the focus ring (120 ms) and the wheel.
+Slide steps run in a long series of similar sizes; a jump stands alone. Slow motion reaches only what `Motion` still
+draws, the label dips and the zoom. The framework's motion (fades, slides, arrivals, departures, the focus ring, the
+wheel) keeps real time, so a burst catches it in a frame or two at most.
 
 ### How a day is reviewed
 

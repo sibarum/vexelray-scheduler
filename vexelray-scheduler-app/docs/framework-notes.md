@@ -44,6 +44,13 @@ map of who is fading so a departure starts from where an arrival got to. Every a
 `Transitions` look will write these same two methods: a framework `EnterMotion`/`ExitMotion` beside `LayoutMotion`,
 enrolled the same way (`followSubtree`), and a `remove()` that waits for the exit, would make the whole class free.
 
+**Resolved upstream (vexelray-gui 80f43a8).** Every window the framework builds now has `Presence` over its whole
+tree, with `Transitions` and `Fades`, and a parent whose children are all replaced at once fades the old out and
+then the new in. `Motion.appear`, `Motion.leave`, the map of faders, `Motion.follow` and the application's own
+`Fades`/`Transitions` are deleted; an arrival is an append, a departure a `remove()`, and `Motion.Stage` only appends
+and removes. Kept on top, they doubled the framework's: arrivals rose twice as far, and a removed lane's gap held
+for 140 ms after it had faded.
+
 ## FN-2 · A label's words change in one frame 🔬
 
 `Fades` blends a text colour but not the text. `Motion.Label` dips the node's opacity out, swaps the words, and

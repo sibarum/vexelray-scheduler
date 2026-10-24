@@ -66,12 +66,12 @@ final class Recipes {
     }
 
     /**
-     * How anything on screen changes: the paint and layout motion attached to the {@code Gui}, on the framework's
-     * clock, before the first widget exists, so there is no node that was made before things started moving.
+     * What on screen changes that the framework's own motion does not cover — a label's words, a page replaced, the
+     * zoom — on the framework's clock.
      */
     @Provides
-    Motion motion(Gui gui, KronoGui krono) {
-        return new Motion(gui, krono);
+    Motion motion(KronoGui krono) {
+        return new Motion(krono);
     }
 
     /** One zoom step: what the framework's own steps are. */
