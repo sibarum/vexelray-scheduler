@@ -31,6 +31,7 @@
         <vexelray-gui.version>0.1.2-SNAPSHOT</vexelray-gui.version>
         <vexelray.version>0.1.2-SNAPSHOT</vexelray.version>
         <tactroller.version>1.2-SNAPSHOT</tactroller.version>
+        <vexelray-codec.version>0.1.2-SNAPSHOT</vexelray-codec.version>
         <junit.version>5.11.4</junit.version>
     </properties>
 
