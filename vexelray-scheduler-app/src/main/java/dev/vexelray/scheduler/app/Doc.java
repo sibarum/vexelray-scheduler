@@ -38,9 +38,12 @@ record Doc(Team team, int day, int today, int now, Optional<String> selected, in
         history = List.copyOf(history);
     }
 
-    /** {@code team}, looked at on {@code today}, at minute {@code now}. */
+    /**
+     * {@code team}, looked at on {@code today}, at minute {@code now}. {@code today} is -1 when the schedule does not
+     * cover the clock's day (a weekend, before the coming week): then no day is "today" and the first is shown.
+     */
     static Doc of(Team team, int today, int now) {
-        return new Doc(team, today, today, now, Optional.empty(), NONE, List.of());
+        return new Doc(team, Math.max(today, 0), today, now, Optional.empty(), NONE, List.of());
     }
 
     /** The day, reviewed. */

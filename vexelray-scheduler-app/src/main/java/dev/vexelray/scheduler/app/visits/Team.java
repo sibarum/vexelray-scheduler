@@ -1,5 +1,6 @@
 package dev.vexelray.scheduler.app.visits;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -9,11 +10,11 @@ import java.util.Optional;
  * One schedule: a team's clinicians, their visits and their time away, over a run of days. Immutable; every change
  * is a new team, which is what lets the application undo one.
  *
- * @param days   how each day is written in a heading: "Tue 21 Oct"
+ * @param days   the dates the schedule covers, in order; a visit's {@code day} is an index into them
  * @param travel the drive between two visits, in minutes, as the team plans it
  */
-public record Team(String name, List<String> days, List<Clinician> clinicians, List<Visit> visits, List<Away> away,
-        int travel) {
+public record Team(String name, List<LocalDate> days, List<Clinician> clinicians, List<Visit> visits,
+        List<Away> away, int travel) {
 
     /** Minutes in a day: the solver's horizon, and how {@link #at} counts across days. */
     public static final int DAY = 24 * 60;
@@ -30,18 +31,25 @@ public record Team(String name, List<String> days, List<Clinician> clinicians, L
         return day * DAY + minute;
     }
 
-    /** "Thursday", from "Thu 23 Oct". */
+    /** "Thursday". Spelled here rather than by a locale's data, which a native image would have to carry. */
     public String weekday(int day) {
-        return switch (days.get(day).substring(0, 3)) {
-            case "Mon" -> "Monday";
-            case "Tue" -> "Tuesday";
-            case "Wed" -> "Wednesday";
-            case "Thu" -> "Thursday";
-            case "Fri" -> "Friday";
-            case "Sat" -> "Saturday";
-            case "Sun" -> "Sunday";
-            default -> days.get(day);
-        };
+        return capital(days.get(day).getDayOfWeek().name());
+    }
+
+    /** How the day is written in a heading: "Thu 23 Oct". */
+    public String heading(int day) {
+        LocalDate date = days.get(day);
+        return weekday(day).substring(0, 3) + " " + date.getDayOfMonth() + " "
+                + capital(date.getMonth().name()).substring(0, 3);
+    }
+
+    /** The day {@code date} is, by index into {@link #days}; -1 when the schedule does not cover it. */
+    public int day(LocalDate date) {
+        return days.indexOf(date);
+    }
+
+    private static String capital(String upper) {
+        return upper.charAt(0) + upper.substring(1).toLowerCase(java.util.Locale.ROOT);
     }
 
     public Optional<Clinician> clinician(String name) {

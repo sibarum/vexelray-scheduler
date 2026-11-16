@@ -1,14 +1,20 @@
 package dev.vexelray.scheduler.app.visits;
 
+import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
 /**
- * A home-visit team's week, made up, to show the application with: the North team, eight clinicians, Tuesday to
- * Friday. Tuesday is "today" and everything on it is covered; on Thursday one wound-care visit has nobody who can
+ * A home-visit team's week, made up, to show the application with: the North team, eight clinicians, four working
+ * days. The first is "today" and everything on it is covered; on the third one wound-care visit has nobody who can
  * take it, because the one wound nurse working is at a clinic that afternoon and the other is off.
+ *
+ * <p>{@link #north()} is the week as it was written, Tue 21 Oct to Fri 24 Oct 2025, which the tests read sentence by
+ * sentence. {@link #north(LocalDate)} is the same week laid on the four working days from a given date, which is what
+ * the application shows, so its "today" is the clock's.
  */
 public final class Sample {
 
@@ -17,6 +23,12 @@ public final class Sample {
 
     /** The minute the sample calls now: 10:40. */
     public static final int NOW = 10 * 60 + 40;
+
+    /** The first day of the week as it was written: a Tuesday. */
+    public static final LocalDate WRITTEN = LocalDate.of(2025, 10, 21);
+
+    /** How many days the sample covers. */
+    private static final int DAYS = 4;
 
     private static final String[] STREETS = {"Elm Street", "Harbor Road", "Linden Avenue", "Mill Lane", "Orchard Way",
         "Cedar Court", "Bay View Drive", "Station Road"};
@@ -27,7 +39,31 @@ public final class Sample {
     private Sample() {
     }
 
+    /** The week as it was written, Tuesday to Friday. */
     public static Team north() {
+        return north(WRITTEN);
+    }
+
+    /**
+     * The week laid on the four working days from {@code from}: from that day itself if it is a weekday, else from the
+     * Monday after, so a weekend shows the coming week and has no "today" in it.
+     */
+    public static Team north(LocalDate from) {
+        return north(workingDays(from));
+    }
+
+    /** {@code DAYS} weekdays, starting from {@code from} or the first weekday after it. */
+    static List<LocalDate> workingDays(LocalDate from) {
+        List<LocalDate> out = new ArrayList<>(DAYS);
+        for (LocalDate d = from; out.size() < DAYS; d = d.plusDays(1)) {
+            if (d.getDayOfWeek() != DayOfWeek.SATURDAY && d.getDayOfWeek() != DayOfWeek.SUNDAY) {
+                out.add(d);
+            }
+        }
+        return out;
+    }
+
+    private static Team north(List<LocalDate> days) {
         Sample s = new Sample();
         s.day(0, "Dana Reyes", "8:30 9:15 J. Patel WOUND", "9:40 10:30 T. Brooks WOUND",
                 "11:00 11:45 M. Okafor WOUND ES", "13:00 13:45 H. Ngata NURSE", "14:30 15:15 L. Hale WOUND");
@@ -88,7 +124,7 @@ public final class Sample {
                 clinician("Ana Torres", "LPN ES", "NURSE ES"),
                 clinician("Joe Becker", "HHA", "HHA"),
                 clinician("Lena Fischer", "OT", "OT"));
-        return new Team("North team", List.of("Tue 21 Oct", "Wed 22 Oct", "Thu 23 Oct", "Fri 24 Oct"), clinicians,
+        return new Team("North team", days, clinicians,
                 s.visits, s.away, 20);
     }
 

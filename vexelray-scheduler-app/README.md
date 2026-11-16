@@ -8,8 +8,9 @@ bar a visit, and beside it says in plain sentences whether every visit has someo
 time. When one does not, it says why, and offers ways to fix it that change nothing until you confirm. Each sentence
 stands on a checked answer from `vexelray-scheduler-solver`; nobody using it sees a rule, a tag or a constraint.
 
-For now it shows a made-up week of one team (`visits/Sample.java`). The design it follows is the "Scheduler Mockups"
-canvas.
+For now it shows a made-up week of one team (`visits/Sample.java`), laid on the four working days from the clock's
+today (the coming week, at a weekend), and "now" is the clock's at launch. The design it follows is the "Scheduler
+Mockups" canvas.
 
 ## Run it
 
@@ -29,13 +30,15 @@ mvn test                                                  # the review's sentenc
 
 ## The demo, in four clicks
 
+The days below are named as the sample was written, Tuesday to Friday; a run names them by the dates it lands on.
+
 1. **Today** (Tuesday) is covered: "Everything today is covered.", who is where right now, and a look at the week:
    Thursday has a visit that needs you.
 2. **Click a visit** (Okafor, on Dana's lane): the briefing says why Dana has it — each thing it needs, and getting
    there in time — and who else could take it, and why not. Click it again, or Escape, to put it back.
-3. **Thu**, marked amber: Mrs. Alvarez's wound-care visit has nobody who can take it, because the one wound nurse
-   working is at a clinic that afternoon and the other is off. Two ways to fix it: move it to Friday at 10 am, when
-   Dana is free and the visit may still happen, or ask Priya to come in.
+3. **Thu** (the third day), marked amber: Mrs. Alvarez's wound-care visit has nobody who can take it, because the one
+   wound nurse working is at a clinic that afternoon and the other is off. Two ways to fix it: move it to Friday at
+   10 am, when Dana is free and the visit may still happen, or ask Priya to come in.
 4. **Pick a fix**, then confirm: the day turns covered, and the change can be undone (the button, or Ctrl+Z).
 
 ## A native executable
@@ -253,7 +256,9 @@ ottermate --size 60emx34em shot smallest.png --launch ...                # the m
 
 The landmarks in `Landmarks.java` are the names a script uses: `day.thu`, `visit.okafor`, `fix.1`, `confirm`,
 `undo`, and `headline`, whose name is the briefing's first sentence, so `await headline needs` waits for a day with
-something to decide and `await headline covered` for one without. The demo's whole path, as a script:
+something to decide and `await headline covered` for one without. A day's landmark is its weekday, and the sample
+lands on the clock's week, so the day with something to decide is `day.thu` only when the week starts on a Tuesday
+(on a Monday it is `day.wed`). The demo's whole path, as a script:
 
 ```
 click day.thu

@@ -98,7 +98,7 @@ final class Ui {
             titleBar.title(t.name() + " — " + Scheduler.TITLE);
             team.text(t.name());
             showDays(doc, t);
-            date.set(t.days().get(doc.day()));
+            date.set(t.heading(doc.day()));
             schedule.show(doc, review);
             briefing.show(doc, review);
             int problems = review.problems().size();
@@ -107,7 +107,7 @@ final class Ui {
                     ? "all covered · all within credentials"
                     : (review.checks().size() - problems) + " covered · " + problems + " need"
                             + (problems == 1 ? "s" : "") + " you");
-            where.set(t.name() + " · " + t.days().get(doc.day()));
+            where.set(t.name() + " · " + t.heading(doc.day()));
         });
     }
 
@@ -125,7 +125,7 @@ final class Ui {
             Node box = gui.row().alignItems(AlignItems.CENTER).gap(Length.dp(6)).padding(Length.dp(5), Length.dp(12))
                     .corner(Length.dp(6)).background(Color.TRANSPARENT).role("button").children(mark, label);
             gui.onClick(box, () -> model.day(day));
-            gui.landmark(Landmarks.day(t.days().get(day)), box);
+            gui.landmark(Landmarks.day(t.heading(day)), box);
             days.append(box);
             chips.add(new Chip(box, mark, label));
         }

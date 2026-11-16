@@ -2,6 +2,7 @@ package dev.vexelray.scheduler.app.visits;
 
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -99,6 +100,29 @@ class ReviewTest {
         assertEquals("noon", Times.spoken(12 * 60));
         assertEquals("12 pm", Times.hour(12));
         assertEquals("9:05", Times.clock(9 * 60 + 5));
+    }
+
+    @Test
+    void daysAreDates() {
+        assertEquals("Tue 21 Oct", NORTH.heading(TUE));
+        assertEquals("Friday", NORTH.weekday(FRI));
+        assertEquals(THU, NORTH.day(LocalDate.of(2025, 10, 23)));
+        assertEquals(-1, NORTH.day(LocalDate.of(2025, 10, 25)));
+    }
+
+    @Test
+    void theWeekIsLaidOnWorkingDaysFromTheClock() {
+        // A Thursday: Thu, Fri, then Mon and Tue after the weekend.
+        Team week = Sample.north(LocalDate.of(2026, 11, 19));
+        assertEquals(List.of("Thu 19 Nov", "Fri 20 Nov", "Mon 23 Nov", "Tue 24 Nov"),
+                List.of(week.heading(0), week.heading(1), week.heading(2), week.heading(3)));
+        // A Saturday: the coming week, with no today in it.
+        Team weekend = Sample.north(LocalDate.of(2026, 11, 21));
+        assertEquals("Mon 23 Nov", weekend.heading(0));
+        assertEquals(-1, weekend.day(LocalDate.of(2026, 11, 21)));
+        // The sentences follow the dates.
+        assertEquals("Move it to Tuesday at 10 am",
+                check(Review.of(week, 2, 0), "Mrs. Alvarez").fixes().get(0).title());
     }
 
     private static Review.Check check(Review.Day day, String patient) {

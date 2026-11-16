@@ -5,6 +5,8 @@ import dev.vexelray.scheduler.app.visits.Team;
 import sibarum.atchung.Committer;
 import sibarum.atchung.State;
 
+import java.time.LocalDateTime;
+
 import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 
@@ -28,9 +30,19 @@ final class Model {
     private final State<Doc> state;
     private final Committer<Doc, UnaryOperator<Doc>> edit;
 
-    /** The sample team, on its today. */
+    /** The sample team, laid on this week, at the clock's today and now. */
     Model() {
-        this(Sample.north(), Sample.TODAY, Sample.NOW);
+        this(LocalDateTime.now());
+    }
+
+    /** The sample team, laid on the week of {@code at}, looked at then. */
+    Model(LocalDateTime at) {
+        this(Sample.north(at.toLocalDate()), at);
+    }
+
+    /** {@code team} looked at at {@code at}: today is the day it is, if the team's schedule covers it. */
+    Model(Team team, LocalDateTime at) {
+        this(team, team.day(at.toLocalDate()), at.getHour() * 60 + at.getMinute());
     }
 
     Model(Team team, int today, int now) {

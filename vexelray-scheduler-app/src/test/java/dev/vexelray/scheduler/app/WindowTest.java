@@ -6,6 +6,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -34,11 +36,16 @@ class WindowTest {
         shell.disposer().close();
     }
 
+    /** The sample is laid on the clock's week, so today is the first day, or none on a weekend. */
     @Test
-    void itOpensOnACoveredToday() {
+    void itOpensOnTheClocksToday() {
         Doc doc = wiring.model().doc();
-        assertEquals(doc.today(), doc.day());
-        assertEquals("Everything today is covered.", doc.review().headline());
+        LocalDate date = LocalDate.now();
+        boolean weekday = date.getDayOfWeek() != DayOfWeek.SATURDAY && date.getDayOfWeek() != DayOfWeek.SUNDAY;
+        assertEquals(weekday ? 0 : -1, doc.today());
+        assertEquals(0, doc.day());
+        assertEquals(weekday ? "Everything today is covered." : "Everything " + doc.team().weekday(0) + " is covered.",
+                doc.review().headline());
     }
 
     @Test
@@ -48,11 +55,13 @@ class WindowTest {
         assertEquals("1 visit needs you.", model.doc().review().headline());
 
         model.choose(0);
-        assertEquals("Move it to Friday at 10 am", model.doc().fix(model.doc().review()).orElseThrow().title());
+        assertEquals("Move it to " + model.doc().team().weekday(THURSDAY + 1) + " at 10 am",
+                model.doc().fix(model.doc().review()).orElseThrow().title());
         assertEquals("1 visit needs you.", model.doc().review().headline(), "choosing a fix changes nothing");
 
         model.apply();
-        assertEquals("Everything Thursday is covered.", model.doc().review().headline());
+        assertEquals("Everything " + model.doc().team().weekday(THURSDAY) + " is covered.",
+                model.doc().review().headline());
         assertEquals(1, model.doc().history().size());
 
         model.undo();
@@ -63,7 +72,7 @@ class WindowTest {
     @Test
     void pickingAVisitTwicePutsItBack() {
         Model model = wiring.model();
-        String okafor = model.doc().team().visits(model.doc().today()).stream()
+        String okafor = model.doc().team().visits(model.doc().day()).stream()
                 .filter(v -> v.label().equals("Okafor")).findFirst().orElseThrow().id();
         model.toggle(okafor);
         assertEquals(Optional.of(okafor), model.doc().selected());

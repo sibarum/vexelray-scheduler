@@ -337,8 +337,8 @@ public final class Review {
                     String due = team.weekday(v.due() / Team.DAY) + " " + Times.spoken(v.due() % Team.DAY);
                     return Optional.of(new Fix("Move it to " + when, c.first() + " is free then, and the visit can "
                             + "happen any time up to " + due + ". Nothing else moves.",
-                            v.label() + " · " + team.days().get(v.day()).substring(0, 3) + " "
-                                    + Times.spoken(v.start()) + " → " + team.days().get(d).substring(0, 3) + " "
+                            v.label() + " · " + team.heading(v.day()).substring(0, 3) + " "
+                                    + Times.spoken(v.start()) + " → " + team.heading(d).substring(0, 3) + " "
                                     + Times.spoken(t) + ", " + c.first(),
                             team.move(v.id(), d, t, c.name())));
                 }

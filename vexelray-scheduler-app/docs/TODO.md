@@ -8,8 +8,9 @@ Keep an entry short enough that it does not need editing, and delete it when it 
 
 ## Next
 
-- [ ] Real data instead of `visits/Sample`: a team, its clinicians and its visits read from somewhere, and the
-      application's "today" and "now" taken from the clock rather than fixed at Tue 10:40.
+- [ ] Real data instead of `visits/Sample`: a team, its clinicians and its visits read from somewhere. Where from (a
+      file, a service) is not decided. "Today" and "now" are the clock's, but read once at launch: the line at now
+      does not move during a run.
 - [ ] The schedules list from the design (North team, South team, Pediatrics, Wound care), and the Week view.
 - [ ] Remember the day and the team shown between runs, in the framework's settings store.
 - [ ] A fix is checked against its own day only. Once resources are held exclusively in the solver, moving a visit
