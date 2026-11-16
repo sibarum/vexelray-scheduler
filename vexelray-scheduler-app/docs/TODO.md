@@ -20,4 +20,3 @@ Keep an entry short enough that it does not need editing, and delete it when it 
 
 - [ ] Drive times from addresses instead of one figure for the whole team (`Team.travel`).
 - [ ] "Right now" estimates arrival ("arrives about 10:52") from the earliest schedule the solver already returns.
-- [ ] The native build has not been tried since the editor was replaced.

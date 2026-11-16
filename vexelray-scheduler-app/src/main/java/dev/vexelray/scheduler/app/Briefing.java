@@ -66,7 +66,9 @@ final class Briefing {
         headline = motion.label(headlineNode, headlineNode::text);
         Node detailNode = Ui.words(gui, "", Type.BODY, Look.DIM).width(Length.FILL);
         detail = motion.label(detailNode, detailNode::text);
-        Node region = gui.column().width(Length.FILL).height(Length.grow(1f)).scroll(false, false);
+        // As tall as its page, not grown to what is left: a grown region cuts its page off where the panel ends,
+        // and then the panel below has nothing to scroll.
+        Node region = gui.column().width(Length.FILL).scroll(false, false);
         stage = motion.stage(region);
 
         // It scrolls only when the window is shorter than anything the design is drawn for; see Motion.
@@ -180,15 +182,19 @@ final class Briefing {
 
         private final Node root;
         private final List<Node> options = new ArrayList<>();
-        /** Where the confirmation goes among the page's children: after the problem, the heading, the fixes and
-         * "leave it". */
+        private final String weekday;
+        /** Where "leave it" stands among the page's children, after the problem, the heading and the fixes; the
+         * confirmation takes its place while a fix is chosen, since its "Not now" does the same thing. That is
+         * what keeps the page inside the panel at the size the design is drawn for. */
         private final int slot;
+        private Node leave;
         private Node preview;
         private Motion.Label change;
         private Motion.Label confirmLabel;
 
         Fixing(Node root, Doc doc, Review.Day review, Review.Check check) {
             this.root = root;
+            this.weekday = review.team().weekday(doc.day());
             root.append(gui.column().width(Length.FILL).gap(Type.GAP).padding(Length.dp(14)).corner(Length.dp(10))
                     .border(Length.dp(1), Look.AMBER).background(Look.AMBER_GROUND).children(
                             Ui.words(gui, check.problem(), Type.TITLE, Look.AMBER_TEXT).bold().width(Length.FILL),
@@ -209,11 +215,16 @@ final class Briefing {
                 root.append(option);
                 options.add(option);
             }
-            Node leave = card("Leave it for now", "It stays at the top of " + review.team().weekday(doc.day())
-                    + " until someone takes it.", Look.CARD, Look.EDGE).role("button");
-            gui.onClick(leave, () -> model.choose(Doc.NONE));
+            slot = options.size() + 2;
+            leave = leave();
             root.append(leave);
-            slot = options.size() + 3;
+        }
+
+        private Node leave() {
+            Node card = card("Leave it for now", "It stays at the top of " + weekday + " until someone takes it.",
+                    Look.CARD, Look.EDGE).role("button");
+            gui.onClick(card, () -> model.choose(Doc.NONE));
+            return card;
         }
 
         @Override
@@ -224,13 +235,19 @@ final class Briefing {
                         .border(Length.dp(1), chosen ? Look.BLUE : Look.EDGE);
             }
             Optional<Review.Fix> fix = doc.fix(review);
+            // Each swap inserts the arriving card at the slot before removing the one going, so the order is right
+            // whether or not the going one still stands in the list while it fades.
             if (fix.isPresent() && preview == null) {
                 preview = preview(fix.get());
                 root.insert(preview, slot);
+                leave.remove();
+                leave = null;
             } else if (fix.isPresent()) {
                 change.set(fix.get().change());
                 confirmLabel.set(fix.get().title());
             } else if (preview != null) {
+                leave = leave();
+                root.insert(leave, slot);
                 preview.remove();
                 preview = null;
             }
@@ -251,7 +268,8 @@ final class Briefing {
             change.set(fix.change());
             return gui.column().width(Length.FILL).gap(Type.INSET).padding(Length.dp(16)).corner(Length.dp(10))
                     .border(Length.dp(1), Look.EDGE).background(Look.CARD).children(
-                            gui.row().width(Length.FILL).alignItems(AlignItems.CENTER).children(
+                            // Still: when the panel scrolls, its scrollbar narrows this row, which then cuts.
+                            Ui.still(gui.row()).width(Length.FILL).alignItems(AlignItems.CENTER).children(
                                     Ui.words(gui, "1 visit moves", Type.BODY, Look.INK).bold().wordWrap(false),
                                     gui.box().width(Length.grow(1f)),
                                     gui.text("nothing has changed yet").font(Type.MONO).textSize(Type.MICRO)
