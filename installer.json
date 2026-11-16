@@ -1,0 +1,31 @@
+{
+  "id": "vexelray-scheduler-app",
+  "name": "Scheduler",
+  "publisher": "sibarum",
+  "description": "A home-visit team's schedule that says in plain sentences whether every visit is covered, and how to fix it when one is not.",
+  "version": "0.1.0-SNAPSHOT",
+
+  "repo": "sibarum/vexelray-dist",
+  "branch": "main",
+  "repoPath": "apps/vexelray-scheduler-app",
+  "releasesRepo": "sibarum/vexelray-dist",
+  "tagFormat": "vexelray-scheduler-app-v{version}",
+
+  "windows": {
+    "binaries": [
+      {
+        "name": "vexelray-scheduler-app",
+        "source": "vexelray-scheduler-app/target/vexelray-scheduler-app.exe",
+        "icon": "vexelray-scheduler-app/src/main/rc/vexelray-scheduler-app.ico",
+        "addToPath": true,
+        "shortcuts": { "desktop": true, "startMenu": true, "label": "Scheduler" }
+      },
+      {
+        "name": "vexelray-scheduler-app-ffmpeg-record",
+        "source": "vexelray-scheduler-app/target/scheduler-ffmpeg-record-windows-x86_64.zip",
+        "dir": "ffmpeg-record"
+      },
+      { "name": "notices", "source": "THIRD-PARTY-NOTICES.txt" }
+    ]
+  }
+}

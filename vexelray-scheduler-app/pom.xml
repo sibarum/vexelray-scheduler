@@ -246,6 +246,12 @@
                         <goals>
                             <goal>identify</goal>
                         </goals>
+                        <!-- installer.json and THIRD-PARTY-NOTICES.txt are at the repository's root, not beside this
+                             pom, so identify is told where: without it the id check never runs and About has no
+                             notices to open. -->
+                        <configuration>
+                            <installerConfig>${project.basedir}/../installer.json</installerConfig>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>
