@@ -136,18 +136,20 @@ Open `target/generated-sources/annotations/.../SchedulerAppWiring.java` after a 
 
 ### Threading, in one paragraph
 
-The GUI loop runs on its own thread. Every handler — a click, a key — runs on a worker. Workers meet at `Model`,
-whose compare-and-set puts concurrent changes in an order. A listener registered with `Model.onChange` fires on the
-committing thread, one delivery at a time; `Ui.show` runs the review there (the solver's work for a day is a few
-milliseconds) and brings the lanes and the briefing up to date inside `Gui.batch`, which is correct because a prop
-written off the GUI thread is applied by the next drain. Motion runs on the clock's timeline and writes props the same
-way. The only locks are `Motion`'s, each guarding one animated value, and nothing commits to the model while holding
-one. Nothing inside the frame loop reads the model.
+Since 0.2 the application is handed no callbacks (vexelray-framework's `docs/threading.md`, T7.2). What the person
+does is heard in the frame, on the GUI thread: a click on a bar, a day or a card by `gui.hear` in `Ui`, `Schedule` and
+`Briefing`; a button's press and a chord by `Screen`, the `@View`. All of them do one thing, send an `Edit`
+(`Messages`). `Revise`, a `@Job`, makes the edit on the job lane, as a function of whatever `Model` holds then, and
+reviews the week: the solver's work, about 10 to 15 ms for every day, which is too long for a frame. Its answer, `Seen`,
+carries the state's version, and `Screen` draws it inside `Gui.batch`, dropping one older than what is on screen,
+since two jobs may answer in either order. A fix made is performed through the window's undo history (`Undoable`), so
+Ctrl+Z, Ctrl+Shift+Z, Ctrl+Y and the Undo button all go the same way. No lock is held anywhere, and nothing in the
+frame reads the model.
 
 ### Motion
 
-**Nothing on screen changes in a single frame.** Every change the window makes is one of five. The framework draws
-the first four in every window it builds, with nothing to call; `Motion` has the fifth:
+**Nothing on screen changes in a single frame.** Every change the window makes is one of five, and since 0.2 the
+framework draws all five in every window it builds, with nothing to call:
 
 | A change | How it is drawn |
 | --- | --- |
@@ -155,28 +157,22 @@ the first four in every window it builds, with nothing to call; `Motion` has the
 | a node moved: a bar to another lane, a card pushed down | slid from where it was drawn by the framework (`Transitions`) |
 | a node arriving: a bar, the confirmation card, the "Needs someone" lane | appended or inserted; the framework (`Presence`) brings it up from nothing, rising a little |
 | a node going | `remove()`; the framework fades it where it stands, then whatever was below it slides up |
-| a label's words | a `Motion.Label`: dips out, changes, comes back |
+| a label's words | written with `text(...)`; the framework fades the old words out under the new ones |
 
 A region whose contents are replaced whole — the day's lanes, the briefing's page — is a `Motion.Stage`, which
 appends the new page and removes the old one together. The framework reads that as a replacement: the old page is
-lifted out where it stands and fades, then the new one comes up. The zoom keys glide (`Motion.Glide` over
-`Gui.zoom(float)`). The focus ring's fade and the wheel's glide are the framework's too.
+lifted out where it stands and fades, then the new one comes up. The zoom keys call `Gui.zoomIn`/`zoomOut`, and the
+framework glides them. The focus ring's fade and the wheel's glide are the framework's too.
 
 Three things are designed out rather than animated, because the stack draws them in one frame. **Scrollbars**: one
 appears the moment something overflows and narrows what it scrolls, so the lanes never scroll and every box that
 can be smaller than its contents is `Ui.still` (no scrolling, clipped). **Scrolling into view**, which jumps, so
 nothing scrolls by itself. **Border widths**, so a picked-out bar is marked by colour alone.
 
-**Checking it.** A transition is over in a fifth of a second, too fast for a screenshot to catch. Slow down what can
-be slowed, photograph a burst, and look for a step between two frames that is far bigger than the steps either side:
-
-```
-mvn compile exec:exec -Dautomation=0 "-Dapp.jvmArgs=-Dscheduler.slowmo=12"
-```
-
-Slide steps run in a long series of similar sizes; a jump stands alone. Slow motion reaches only what `Motion` still
-draws, the label dips and the zoom. The framework's motion (fades, slides, arrivals, departures, the focus ring, the
-wheel) keeps real time, so a burst catches it in a frame or two at most.
+**Checking it.** A transition is over in a fifth of a second, too fast for a screenshot to catch. Photograph a burst
+and look for a step between two frames that is far bigger than the steps either side: slide steps run in a long
+series of similar sizes, and a jump stands alone. The application's own `-Dscheduler.slowmo` went with the label dips
+and the zoom glide it slowed, now the framework's, so there is no slow motion for any of it (FN-7).
 
 ### How a day is reviewed
 

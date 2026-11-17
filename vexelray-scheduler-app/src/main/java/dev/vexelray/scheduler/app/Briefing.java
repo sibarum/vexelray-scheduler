@@ -3,20 +3,27 @@ package dev.vexelray.scheduler.app;
 import dev.vexelray.canvas.Color;
 import dev.vexelray.gui.core.Gui;
 import dev.vexelray.gui.core.Node;
+import dev.vexelray.gui.core.NodeEvent;
 import dev.vexelray.gui.core.layout.LayoutEnums.AlignItems;
 import dev.vexelray.gui.core.layout.Length;
 import dev.vexelray.gui.icons.Icon;
 import dev.vexelray.gui.icons.IconView;
 import dev.vexelray.gui.widget.Button;
 import dev.vexelray.gui.widget.IconButton;
+import dev.vexelray.scheduler.app.Messages.Edit;
+import dev.vexelray.scheduler.app.Messages.Kind;
+import dev.vexelray.scheduler.app.Messages.Seen;
 import dev.vexelray.scheduler.app.visits.Clinician;
 import dev.vexelray.scheduler.app.visits.Review;
 import dev.vexelray.scheduler.app.visits.Times;
 import dev.vexelray.scheduler.app.visits.Visit;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 /**
  * "What's going on": the day in a sentence, and what to do about it.
@@ -36,13 +43,13 @@ final class Briefing {
     private static final Length WIDTH = Length.rem(25);
 
     private final Gui gui;
-    private final Model model;
-    private final Motion motion;
+    private final Consumer<Edit> send;
+    /** What each button on the page on stage asks for, by its address. */
+    private final Map<String, Edit> presses = new HashMap<>();
     private final Node node;
-    private final Node badgeNode;
-    private final Motion.Label badge;
-    private final Motion.Label headline;
-    private final Motion.Label detail;
+    private final Node badge;
+    private final Node headline;
+    private final Node detail;
     private final Motion.Stage stage;
     private Page page;
 
@@ -51,30 +58,26 @@ final class Briefing {
         void update(Doc doc, Review.Day review);
     }
 
-    Briefing(Gui gui, Model model, Motion motion) {
+    Briefing(Gui gui, Consumer<Edit> send) {
         this.gui = gui;
-        this.model = model;
-        this.motion = motion;
+        this.send = send;
 
-        badgeNode = gui.text("").font(Type.MONO).textSize(Type.MICRO).wordWrap(false);
-        badge = motion.label(badgeNode, badgeNode::text);
+        badge = gui.text("").font(Type.MONO).textSize(Type.MICRO).wordWrap(false);
         Node top = gui.row().width(Length.FILL).alignItems(AlignItems.CENTER).children(
                 Ui.words(gui, "What's going on", Type.BODY, Look.INK).bold().wordWrap(false),
-                gui.box().width(Length.grow(1f)), badgeNode);
-        Node headlineNode = Ui.words(gui, "", Type.HEADLINE, Look.INK).bold().width(Length.FILL);
-        gui.landmark(Landmarks.HEADLINE, headlineNode);
-        headline = motion.label(headlineNode, headlineNode::text);
-        Node detailNode = Ui.words(gui, "", Type.BODY, Look.DIM).width(Length.FILL);
-        detail = motion.label(detailNode, detailNode::text);
+                gui.box().width(Length.grow(1f)), badge);
+        headline = Ui.words(gui, "", Type.HEADLINE, Look.INK).bold().width(Length.FILL);
+        gui.landmark(Landmarks.HEADLINE, headline);
+        detail = Ui.words(gui, "", Type.BODY, Look.DIM).width(Length.FILL);
         // As tall as its page, not grown to what is left: a grown region cuts its page off where the panel ends,
         // and then the panel below has nothing to scroll.
         Node region = gui.column().width(Length.FILL).scroll(false, false);
-        stage = motion.stage(region);
+        stage = Motion.stage(region);
 
         // It scrolls only when the window is shorter than anything the design is drawn for; see Motion.
         node = gui.column().width(WIDTH).height(Length.FILL).background(Look.BRIEFING).padding(Type.MARGIN)
                 .gap(Length.dp(16)).scroll(false, true).clip(true)
-                .children(top, gui.column().width(Length.FILL).gap(Type.GAP).children(headlineNode, detailNode),
+                .children(top, gui.column().width(Length.FILL).gap(Type.GAP).children(headline, detail),
                         region);
     }
 
@@ -82,13 +85,20 @@ final class Briefing {
         return node;
     }
 
-    void show(Doc doc, Review.Day review) {
-        headline.set(review.headline());
-        detail.set(review.detail());
+    /** What a press of {@code button} asks for, if it is a button on the page on stage; null if it is not. */
+    Edit pressed(String button) {
+        return presses.get(button);
+    }
+
+    void show(Seen seen) {
+        Doc doc = seen.doc();
+        Review.Day review = seen.review();
+        headline.text(review.headline());
+        detail.text(review.detail());
         int problems = review.problems().size();
-        badge.set(problems == 0 ? "checked " + Times.clock(doc.now())
+        badge.text(problems == 0 ? "checked " + Times.clock(doc.now())
                 : problems + " need" + (problems == 1 ? "s" : "") + " you");
-        badgeNode.textColor(problems == 0 ? Look.FAINT : Look.AMBER);
+        badge.textColor(problems == 0 ? Look.FAINT : Look.AMBER);
 
         Optional<Review.Check> focus = doc.focus(review);
         Optional<Review.Check> picked = doc.selected().flatMap(review::check).filter(Review.Check::covered);
@@ -105,12 +115,14 @@ final class Briefing {
         }
         if (page == null || !stage.showing(key)) {
             Node root = gui.column().width(Length.FILL).gap(Type.INSET);
+            // The page going lifts out and stops taking the pointer at once, so only this page's buttons are pressed.
+            presses.clear();
             if (focus.isPresent() && picked.isEmpty()) {
                 page = new Fixing(root, doc, review, focus.get());
             } else if (picked.isPresent()) {
                 page = explaining(root, review, picked.get());
             } else {
-                page = day(root, doc, review);
+                page = day(root, seen, review);
             }
             history(root, doc);
             page.update(doc, review);
@@ -123,14 +135,11 @@ final class Briefing {
     // ------------------------------------------------------------------------------------------------ the day
 
     /** Right now, if the day is today; and the rest of the week. Nothing on it changes while it is shown. */
-    private Page day(Node root, Doc doc, Review.Day review) {
-        if (doc.day() == doc.today()) {
-            List<Review.Now> now = Review.now(review.team(), doc.day(), doc.now());
-            if (!now.isEmpty()) {
-                root.append(Ui.caps(gui, "Right now"));
-                for (Review.Now n : now) {
-                    root.append(card(n.what(), n.detail(), Look.CARD, Look.RULE));
-                }
+    private Page day(Node root, Seen seen, Review.Day review) {
+        if (!seen.now().isEmpty()) {
+            root.append(Ui.caps(gui, "Right now"));
+            for (Review.Now n : seen.now()) {
+                root.append(card(n.what(), n.detail(), Look.CARD, Look.RULE));
             }
         }
         if (!review.later().isEmpty()) {
@@ -151,7 +160,8 @@ final class Briefing {
         Clinician c = check.clinician().orElseThrow();
         gui.landmark(Landmarks.DETAIL, root);
 
-        IconButton close = new IconButton(gui, Icon.CLOSE, "Put it back").onPress(model::deselect);
+        IconButton close = new IconButton(gui, Icon.CLOSE, "Put it back");
+        presses.put(close.address(), Edit.of(Kind.DESELECT));
         gui.landmark(Landmarks.DETAIL_CLOSE, close.node());
         root.append(gui.row().width(Length.FILL).alignItems(AlignItems.CENTER).gap(Type.GAP).children(
                 gui.column().width(Length.grow(1f)).gap(Length.dp(2)).children(
@@ -189,8 +199,8 @@ final class Briefing {
         private final int slot;
         private Node leave;
         private Node preview;
-        private Motion.Label change;
-        private Motion.Label confirmLabel;
+        private Node change;
+        private Button confirm;
 
         Fixing(Node root, Doc doc, Review.Day review, Review.Check check) {
             this.root = root;
@@ -210,7 +220,7 @@ final class Briefing {
                 Review.Fix fix = check.fixes().get(i);
                 Node option = card(fix.title(), fix.detail(), Look.CARD, Look.EDGE).role("button");
                 int index = i;
-                gui.onClick(option, () -> model.choose(index));
+                gui.hear(option, NodeEvent.CLICK, click -> send.accept(Edit.choose(index)));
                 gui.landmark(Landmarks.fix(i), option);
                 root.append(option);
                 options.add(option);
@@ -223,7 +233,7 @@ final class Briefing {
         private Node leave() {
             Node card = card("Leave it for now", "It stays at the top of " + weekday + " until someone takes it.",
                     Look.CARD, Look.EDGE).role("button");
-            gui.onClick(card, () -> model.choose(Doc.NONE));
+            gui.hear(card, NodeEvent.CLICK, click -> send.accept(Edit.choose(Doc.NONE)));
             return card;
         }
 
@@ -243,8 +253,8 @@ final class Briefing {
                 leave.remove();
                 leave = null;
             } else if (fix.isPresent()) {
-                change.set(fix.get().change());
-                confirmLabel.set(fix.get().title());
+                change.text(fix.get().change());
+                confirm.label(fix.get().title());
             } else if (preview != null) {
                 leave = leave();
                 root.insert(leave, slot);
@@ -255,17 +265,16 @@ final class Briefing {
 
         /** What the fix would move, and the button that moves it. */
         private Node preview(Review.Fix fix) {
-            Button confirm = new Button(gui, fix.title()).kind(Button.Kind.PRIMARY).onPress(model::apply);
-            Button notNow = new Button(gui, "Not now").onPress(() -> model.choose(Doc.NONE));
+            confirm = new Button(gui, fix.title()).kind(Button.Kind.PRIMARY);
+            Button notNow = new Button(gui, "Not now");
+            presses.put(confirm.address(), Edit.of(Kind.APPLY));
+            presses.put(notNow.address(), Edit.choose(Doc.NONE));
             gui.landmark(Landmarks.CONFIRM, confirm.node());
             gui.landmark(Landmarks.NOT_NOW, notNow.node());
             confirm.node().width(Length.grow(1f));
-            confirmLabel = motion.label(confirm.node(), confirm::label);
-            confirmLabel.set(fix.title());
-            Node changeNode = gui.text("").font(Type.MONO).textSize(Type.SMALL).textColor(Look.INK)
+            change = gui.text(fix.change()).font(Type.MONO).textSize(Type.SMALL).textColor(Look.INK)
                     .width(Length.FILL);
-            change = motion.label(changeNode, changeNode::text);
-            change.set(fix.change());
+            Node changeNode = change;
             return gui.column().width(Length.FILL).gap(Type.INSET).padding(Length.dp(16)).corner(Length.dp(10))
                     .border(Length.dp(1), Look.EDGE).background(Look.CARD).children(
                             // Still: when the panel scrolls, its scrollbar narrows this row, which then cuts.
@@ -289,7 +298,8 @@ final class Briefing {
             return;
         }
         Doc.Change last = doc.history().getLast();
-        Button undo = new Button(gui, "Undo").kind(Button.Kind.GHOST).onPress(model::undo);
+        Button undo = new Button(gui, "Undo").kind(Button.Kind.GHOST);
+        presses.put(undo.address(), Edit.of(Kind.UNDO));
         gui.landmark(Landmarks.UNDO, undo.node());
         root.append(Ui.caps(gui, "Last change"));
         root.append(gui.row().width(Length.FILL).alignItems(AlignItems.CENTER).gap(Type.GAP).children(

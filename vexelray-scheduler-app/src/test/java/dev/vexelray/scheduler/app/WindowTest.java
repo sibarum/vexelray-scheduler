@@ -67,6 +67,12 @@ class WindowTest {
         model.undo();
         assertEquals("1 visit needs you.", model.doc().review().headline());
         assertTrue(model.doc().history().isEmpty());
+
+        model.change(Doc::redone);
+        assertEquals("Everything " + model.doc().team().weekday(THURSDAY) + " is covered.",
+                model.doc().review().headline(), "redo makes the same fix again");
+        assertEquals(1, model.doc().history().size());
+        assertTrue(model.doc().redoable().isEmpty());
     }
 
     @Test

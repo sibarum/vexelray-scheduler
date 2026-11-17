@@ -3,9 +3,11 @@ package dev.vexelray.scheduler.app;
 import dev.vexelray.canvas.Color;
 import dev.vexelray.gui.core.Gui;
 import dev.vexelray.gui.core.Node;
+import dev.vexelray.gui.core.NodeEvent;
 import dev.vexelray.gui.core.layout.LayoutEnums.AlignItems;
 import dev.vexelray.gui.core.layout.LayoutEnums.Justify;
 import dev.vexelray.gui.core.layout.Length;
+import dev.vexelray.scheduler.app.Messages.Edit;
 import dev.vexelray.scheduler.app.visits.Away;
 import dev.vexelray.scheduler.app.visits.Clinician;
 import dev.vexelray.scheduler.app.visits.Review;
@@ -18,6 +20,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 
 /**
  * The day, one lane a clinician: a bar for every visit at its time, time away drawn quieter, a blue line at now.
@@ -50,25 +53,21 @@ final class Schedule {
     private static final Length BAR_TOP = Length.rem(0.6f);
 
     private final Gui gui;
-    private final Model model;
-    private final Motion motion;
+    private final Consumer<Edit> send;
     private final Node node;
-    private final Motion.Label dayName;
-    private final Motion.Label working;
+    private final Node dayName;
+    private final Node working;
     private final Motion.Stage stage;
     private Page page;
 
-    Schedule(Gui gui, Model model, Motion motion) {
+    Schedule(Gui gui, Consumer<Edit> send) {
         this.gui = gui;
-        this.model = model;
-        this.motion = motion;
+        this.send = send;
 
-        Node dayNode = Ui.words(gui, "", Type.TITLE, Look.INK).bold().wordWrap(false);
-        Node workingNode = Ui.words(gui, "", Type.SMALL, Look.FAINT).wordWrap(false);
-        dayName = motion.label(dayNode, dayNode::text);
-        working = motion.label(workingNode, workingNode::text);
+        dayName = Ui.words(gui, "", Type.TITLE, Look.INK).bold().wordWrap(false);
+        working = Ui.words(gui, "", Type.SMALL, Look.FAINT).wordWrap(false);
         Node heading = gui.row().width(Length.FILL).alignItems(AlignItems.END).gap(Type.INSET)
-                .padding(Length.dp(14), Type.MARGIN).children(dayNode, workingNode);
+                .padding(Length.dp(14), Type.MARGIN).children(dayName, working);
 
         Node ticks = gui.box().width(Length.grow(1f)).height(Length.rem(1.4f));
         for (int h = FIRST / 60; h < LAST / 60; h++) {
@@ -79,7 +78,7 @@ final class Schedule {
                 .children(gui.box().width(NAMES), ticks);
 
         Node lanes = Ui.still(gui.column().width(Length.FILL).height(Length.grow(1f)));
-        stage = motion.stage(lanes);
+        stage = Motion.stage(lanes);
 
         node = Ui.still(gui.column().width(Length.grow(1f)).height(Length.FILL)).background(Look.LANES)
                 .children(heading, clock, Ui.rule(gui, true), lanes);
@@ -91,8 +90,8 @@ final class Schedule {
 
     void show(Doc doc, Review.Day review) {
         Team team = review.team();
-        dayName.set(team.weekday(doc.day()));
-        working.set(team.working(doc.day()).size() + " of " + team.clinicians().size() + " clinicians working");
+        dayName.text(team.weekday(doc.day()));
+        working.text(team.working(doc.day()).size() + " of " + team.clinicians().size() + " clinicians working");
         String key = "day:" + doc.day();
         if (page == null || !stage.showing(key)) {
             page = new Page(doc, team);
@@ -116,12 +115,12 @@ final class Schedule {
         final Node node;
         private final Map<String, Node> lanes = new HashMap<>();
         private final Map<String, Node> names = new HashMap<>();
-        private final Map<String, Motion.Label> offs = new HashMap<>();
+        private final Map<String, Node> offs = new HashMap<>();
         private final Map<String, Bar> bars = new HashMap<>();
         private final Map<Node, Node> lines = new HashMap<>();
         private Node needs;
         private Node needsLane;
-        private Motion.Label needsCount;
+        private Node needsCount;
 
         /** A visit's bar, the lane it is in, and its label. */
         private static final class Bar {
@@ -149,7 +148,7 @@ final class Schedule {
                 Node off = Ui.words(gui, "", Type.BODY, Look.FAINT).wordWrap(false)
                         .floatAt(Length.dp(8), Length.rem(1.05f));
                 lane.append(off);
-                offs.put(c.name(), motion.label(off, off::text));
+                offs.put(c.name(), off);
                 Node name = Ui.words(gui, c.name(), Type.BODY, Look.INK).bold().wordWrap(false);
                 names.put(c.name(), name);
                 lanes.put(c.name(), lane);
@@ -166,19 +165,18 @@ final class Schedule {
                     .filter(c -> c.visit().clinician().isEmpty()).toList();
             if (!nobody.isEmpty() && needs == null) {
                 needsLane = lane(doc);
-                Node countNode = Ui.caps(gui, "", Look.AMBER);
-                needsCount = motion.label(countNode, countNode::text);
+                needsCount = Ui.caps(gui, "", Look.AMBER);
                 needs = row(Ui.words(gui, "Needs someone", Type.BODY, Look.AMBER_TEXT).bold().wordWrap(false),
-                        countNode, needsLane, Look.AMBER_LANE);
+                        needsCount, needsLane, Look.AMBER_LANE);
                 node.insert(needs, 0);
             }
             if (needsCount != null) {
-                needsCount.set(nobody.size() == 1 ? "1 VISIT" : nobody.size() + " VISITS");
+                needsCount.text(nobody.size() == 1 ? "1 VISIT" : nobody.size() + " VISITS");
             }
 
             for (Clinician c : team.clinicians()) {
                 names.get(c.name()).textColor(c.works(day) ? Look.INK : Look.FAINT);
-                offs.get(c.name()).set(c.works(day) ? "" : "Off " + (day == doc.today() ? "today" : team.weekday(day)));
+                offs.get(c.name()).text(c.works(day) ? "" : "Off " + (day == doc.today() ? "today" : team.weekday(day)));
             }
 
             Set<String> here = new HashSet<>();
@@ -227,7 +225,7 @@ final class Schedule {
                     .corner(Length.dp(6)).border(Length.dp(1), Look.EDGE).background(Look.CARD).role("button")
                     .append(label);
             place(box, v.start(), v.end());
-            gui.onClick(box, () -> model.toggle(v.id()));
+            gui.hear(box, NodeEvent.CLICK, click -> send.accept(Edit.toggle(v.id())));
             gui.landmark(Landmarks.visit(v.label()), box);
             return new Bar(box, label, v.clinician().orElse(""), v.start());
         }

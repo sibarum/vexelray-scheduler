@@ -4,10 +4,10 @@ import dev.vexelray.scheduler.app.visits.Sample;
 import dev.vexelray.scheduler.app.visits.Team;
 import sibarum.atchung.Committer;
 import sibarum.atchung.State;
+import sibarum.atchung.Versioned;
 
 import java.time.LocalDateTime;
 
-import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 
 /**
@@ -20,9 +20,9 @@ import java.util.function.UnaryOperator;
  * neither is lost. The alternative — read the value, compute a whole new one, write it back — produces something
  * perfectly coherent with one change missing whenever two handlers overlap, and nothing reports it.
  *
- * <h2>Handlers run on workers; this is the serialisation point</h2>
+ * <h2>Edits are made on the job lane; this is the serialisation point</h2>
  *
- * <p>Nothing else in this application needs a lock, and if something starts to, that is the signal that state has
+ * <p>{@link Revise} makes each edit, and two may run at once. Nothing else in this application needs a lock, and if something starts to, that is the signal that state has
  * escaped this class.
  */
 final class Model {
@@ -90,16 +90,12 @@ final class Model {
     }
 
     /**
-     * React to every change, in order, one at a time, always finishing on the newest.
-     *
-     * <p>{@code State.onCommit} delivers on the committing thread <em>after</em> its compare-and-set, and handlers
-     * commit from a pool — so two finishing together reach a listener as version 6 then 5, and a listener that
-     * redraws from the value would end on a stale one. {@code onCommitLatest} serialises delivery and drops a
-     * snapshot older than the last delivered. It does so by making a committer wait, so never commit here while
-     * holding a lock the listener also takes.
+     * The state as it is now, with its version, reviewed. The solver's work, so it is called on the job lane
+     * ({@link Revise}) or while the tree is built, and never in the frame.
      */
-    void onChange(Consumer<Doc> listener) {
-        state.onCommitLatest(v -> listener.accept(v.value()));
+    Messages.Seen seen() {
+        Versioned<Doc> current = state.current();
+        return Messages.Seen.of(current.version(), current.value());
     }
 
     /** The version counter — what a test waits on to know a change landed. */

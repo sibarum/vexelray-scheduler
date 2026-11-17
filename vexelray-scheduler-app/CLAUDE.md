@@ -36,8 +36,9 @@ them even when a shortcut looks harmless:
 - **Nothing reflects.** No `Class.forName`, no runtime annotation reads, no reflective serialization. This compiles to
   a GraalVM native image, and the framework's wiring is generated at compile time so that nothing needs reflection.
 - **Nothing in the frame loop allocates, logs or blocks.** No disk, no network, no locks there.
-- **Vulkan, the window and present stay on the main thread.** Handlers run on workers, and disk work goes to the
-  offload lane. README's *Threading, in one paragraph* is the whole model. Nothing holds a lock today; if something
+- **Vulkan, the window and present stay on the main thread.** A click, a press or a chord is heard in the frame and
+  only sends a message; the edit and the solver's review are a `@Job` (`Revise`), and disk work would be one too.
+  README's *Threading, in one paragraph* is the whole model. Nothing holds a lock today; if something
   comes to, nothing may commit to the model while holding it, and nothing reached from a model listener may take it.
 - **All input comes through tactroller.** No polling the OS keyboard, and no native listener of your own.
 - **Log through `sibarum.probe.Log`**, as `Log.of("vexelray-scheduler-app.<area>")`. stdout is for lines another program parses
@@ -45,7 +46,7 @@ them even when a shortcut looks harmless:
 - **Nothing appears, moves or grows on hover**, and only command keys auto-repeat.
 - **Nothing on screen changes in a single frame.** Keep nodes and change them; never rebuild what is on screen. A
   colour fades, a move slides, an append arrives and a `remove()` fades out by themselves (the framework's motion,
-  in every window); changed words go through a `Motion.Label`, a replaced region through a `Motion.Stage`. Never
+  in every window), and so do changed words and the zoom; a replaced region goes through a `Motion.Stage`. Never
   animate a size (two clocks), never let a box that changes grow a scrollbar (`Ui.still`), never
   `scrollIntoView`. README's *Motion* says how to check it in slow motion.
 - **A compile error beats a startup error beats a runtime error.** Prefer the check that fails earliest.

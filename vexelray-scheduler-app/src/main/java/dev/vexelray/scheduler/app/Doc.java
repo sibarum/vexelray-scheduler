@@ -24,18 +24,21 @@ import java.util.Optional;
  * @param selected the visit picked out, by id; empty when none is
  * @param chosen   the fix being considered, by index into the focused visit's fixes; {@link #NONE} when none is
  * @param history  every change made, oldest first
+ * @param redoable every change undone since the last one made, the latest undone last
  */
-record Doc(Team team, int day, int today, int now, Optional<String> selected, int chosen, List<Change> history) {
+record Doc(Team team, int day, int today, int now, Optional<String> selected, int chosen, List<Change> history,
+           List<Change> redoable) {
 
     /** No fix is being considered. */
     static final int NONE = -1;
 
-    /** A change that was made, and the schedule it replaced. */
-    record Change(String what, Team before) {
+    /** A change that was made, the schedule it replaced, and the one it made. */
+    record Change(String what, Team before, Team after) {
     }
 
     Doc {
         history = List.copyOf(history);
+        redoable = List.copyOf(redoable);
     }
 
     /**
@@ -43,7 +46,7 @@ record Doc(Team team, int day, int today, int now, Optional<String> selected, in
      * cover the clock's day (a weekend, before the coming week): then no day is "today" and the first is shown.
      */
     static Doc of(Team team, int today, int now) {
-        return new Doc(team, Math.max(today, 0), today, now, Optional.empty(), NONE, List.of());
+        return new Doc(team, Math.max(today, 0), today, now, Optional.empty(), NONE, List.of(), List.of());
     }
 
     /** The day, reviewed. */
@@ -66,40 +69,58 @@ record Doc(Team team, int day, int today, int now, Optional<String> selected, in
     }
 
     Doc withDay(int value) {
-        return new Doc(team, value, today, now, Optional.empty(), NONE, history);
+        return new Doc(team, value, today, now, Optional.empty(), NONE, history, redoable);
     }
 
     /** Pick out {@code id}, or put it back if it was already picked out. */
     Doc toggled(String id) {
         Optional<String> next = selected.filter(id::equals).isPresent() ? Optional.empty() : Optional.of(id);
-        return new Doc(team, day, today, now, next, NONE, history);
+        return new Doc(team, day, today, now, next, NONE, history, redoable);
     }
 
     Doc deselected() {
-        return new Doc(team, day, today, now, Optional.empty(), chosen, history);
+        return new Doc(team, day, today, now, Optional.empty(), chosen, history, redoable);
     }
 
     Doc withChosen(int value) {
-        return new Doc(team, day, today, now, selected, value, history);
+        return new Doc(team, day, today, now, selected, value, history, redoable);
     }
 
-    /** The fix being considered, made: the schedule replaced, and the old one kept to undo to. */
+    /**
+     * The fix being considered, made: the schedule replaced, and the old one kept to undo to. A new change ends what
+     * could be redone, as in any editor.
+     */
     Doc applied() {
         Optional<Review.Fix> fix = fix(review());
         if (fix.isEmpty()) {
             return this;
         }
         List<Change> next = new ArrayList<>(history);
-        next.add(new Change(fix.get().change(), team));
-        return new Doc(fix.get().after(), day, today, now, Optional.empty(), NONE, next);
+        next.add(new Change(fix.get().change(), team, fix.get().after()));
+        return new Doc(fix.get().after(), day, today, now, Optional.empty(), NONE, next, List.of());
     }
 
-    /** The last change, unmade. */
+    /** The last change, unmade, and kept to redo. */
     Doc undone() {
         if (history.isEmpty()) {
             return this;
         }
         Change last = history.getLast();
-        return new Doc(last.before(), day, today, now, Optional.empty(), NONE, history.subList(0, history.size() - 1));
+        List<Change> redo = new ArrayList<>(redoable);
+        redo.add(last);
+        return new Doc(last.before(), day, today, now, Optional.empty(), NONE, history.subList(0, history.size() - 1),
+                redo);
+    }
+
+    /** The last change undone, made again. */
+    Doc redone() {
+        if (redoable.isEmpty()) {
+            return this;
+        }
+        Change last = redoable.getLast();
+        List<Change> next = new ArrayList<>(history);
+        next.add(last);
+        return new Doc(last.after(), day, today, now, Optional.empty(), NONE, next,
+                redoable.subList(0, redoable.size() - 1));
     }
 }

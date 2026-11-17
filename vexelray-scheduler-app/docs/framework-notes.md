@@ -59,6 +59,10 @@ text crossfade in the renderer — old glyphs out, new in, in the node's own box
 only possible upstream. `TitleBar.title` is the one it cannot reach (the framework draws it), so the title no longer
 names the day.
 
+**Closed in 0.2** (2026-11-16): the renderer fades replaced words and an opacity change itself (`PaintMotion`'s
+`REPLACED` and `OPACITY` channels), the crossfade asked for here. `Motion.Label` is deleted; labels are written with
+`text(...)`.
+
 ## FN-3 · Scrollbars appear in one frame, and every node scrolls by default 🔬
 
 `Node.scroll` defaults to on for both axes, so any box whose content overflows, even for a frame of an animation,
@@ -88,6 +92,9 @@ or a stage component, would remove the trap.
 drive `Gui.zoom(float)` from a glide instead, reading the framework's own value at rest since it restores and clamps
 it. A `zoomGlide` beside `scrollGlide` and `focusFade` would fit the framework's existing pattern exactly.
 
+**Closed in 0.2** (2026-11-16): `Gui.zoomGlide`, which the framework's `WindowMotion` sets on every window. The
+zoom chords call `zoomIn`/`zoomOut`/`resetZoom`, and `Motion.Glide` is deleted.
+
 ## FN-7 · There is no slow motion for the whole window 💡
 
 To prove nothing jumps, transitions have to be photographed mid-flight, which at 140 ms means slowing them down.
@@ -96,3 +103,17 @@ the wheel) keep real time, so they show up in a slow-motion burst as steps that 
 framework-wide time scale on the clock, and an ottermate verb to step frames, would make "no frame jumps" a check a
 script can make rather than one a person has to read.
 
+
+**0.2** (2026-11-16): what `Motion` drew is the framework's now (FN-2, FN-6), so `-Dscheduler.slowmo` had nothing
+left to slow and is gone. The finding stands, and now covers everything on screen.
+
+## FN-8 · A keymap action on Ctrl+Z is accepted, listed, and never fires 🔬
+
+Porting to 0.2, Ctrl+Z became a `Keymap` action like Escape and the zoom chords. It compiled, started with no
+warning, and the title bar's key button would list it, but pressing it did nothing. Every 0.2 window gets an undo
+history from the shell (`Window`, `gui.history(history)`), which claims Ctrl+Z, Ctrl+Shift+Z and Ctrl+Y on the root,
+and that claim outranks the keymap's. It took an `ottermate` run and reading `Window` and `Keymap` to find. The way it
+is meant to go is to record the application's own changes in that history, as Vexplore's `Journaled` and the IDE's
+`Moving` do; here that is `Undoable`, and the Undo button calls `gui.undo(gui.history())`. Wanted: `Keymap.action`
+refusing (or at least logging) a default chord the window's history already holds, as it refuses two actions sharing
+one. A compile or startup error would have cost a minute.
