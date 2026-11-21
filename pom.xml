@@ -27,13 +27,31 @@
         <maven.compiler.release>25</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <vexelray-framework.version>0.2.1-SNAPSHOT</vexelray-framework.version>
+        <!-- The stack this is built against, as one version: vexelray-bom's, imported below, which fixes the version
+             of every library in the stack, so no dependency in this build names one. Moving to a newer stack is this
+             line. -->
+        <vexelray-bom.version>0.2.1-SNAPSHOT</vexelray-bom.version>
+        <!-- A BOM manages dependencies and not plugins, so the stack's two build plugins keep a version of their own:
+             vexelray-gui's icons plugin and vexelray-build's (both in the app module). -->
         <vexelray-gui.version>0.2.1-SNAPSHOT</vexelray-gui.version>
-        <vexelray.version>0.2.1-SNAPSHOT</vexelray.version>
-        <tactroller.version>1.4-SNAPSHOT</tactroller.version>
-        <vexelray-codec.version>0.2.1-SNAPSHOT</vexelray-codec.version>
+        <vexelray-build.version>0.2.1-SNAPSHOT</vexelray-build.version>
         <junit.version>5.11.4</junit.version>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- The stack's versions (vexelray-framework's vexelray-bom). Each library also carries its own
+                 native-image metadata and flags, so a native build inherits what the libraries it depends on need,
+                 and this project writes none of it. -->
+            <dependency>
+                <groupId>dev.vexelray.framework</groupId>
+                <artifactId>vexelray-bom</artifactId>
+                <version>${vexelray-bom.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <build>
         <pluginManagement>

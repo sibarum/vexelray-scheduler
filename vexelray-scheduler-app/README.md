@@ -59,11 +59,14 @@ own `link.exe` comes first. The script finds `vcvars64.bat` with `vswhere`, load
 arguments it was given (`./native-build.cmd ...` from Git Bash). Plain `mvn` works too from a developer prompt; from
 anywhere else the icon step stops and says to use the script.
 
-This program's own native-image metadata is `src/main/resources/META-INF/native-image/.../reachability-metadata.json`,
-and it is short because almost nothing is this program's: the libraries register their own, and the processor
-registers the icon. If a native run fails on something the JVM run did not (a `Missing...RegistrationError`), run it
-on a JVM under `-agentlib:native-image-agent=config-output-dir=...`, do the thing that failed, and add
-only the entries that name this program.
+This program has no native-image metadata and no FFM flags of its own, and needs none. Each library carries what it
+needs in its own jar (`META-INF/native-image/<groupId>/<artifactId>/`): its downcalls, its resources, and the FFM flags
+(`-H:+ForeignAPISupport`, shared arenas, `--enable-native-access`), which native-image merges from every jar on the
+class path. The processor registers the icon. If a native run fails on something the JVM run did not (a
+`Missing...RegistrationError`), run it on a JVM under `-agentlib:native-image-agent=config-output-dir=...`, do the
+thing that failed, and put only the entries that name this program in
+`src/main/resources/META-INF/native-image/dev.vexelray.scheduler/vexelray-scheduler-app/reachability-metadata.json`.
+An entry naming a library belongs in that library's jar; write it up in `docs/framework-notes.md` instead.
 
 ## The icon
 
@@ -195,6 +198,11 @@ Everything the solver returns has been through its checker first, so a sentence 
 
 Everything below is installed locally rather than downloaded, so `mvn install` in each of those projects has to have
 happened at least once. If the build cannot resolve them, that is why.
+
+No dependency here names a version. The parent pom (the repository's root) imports `vexelray-bom`, which fixes the
+version of every library in the stack, the ones this project reaches through others included, so the whole stack
+moves together: to build against a newer one, change `vexelray-bom.version`. Only the stack's two build plugins
+(vexelray-build's and the icons plugin) name a version of their own, because a BOM cannot manage a plugin.
 
 | what | why it is here |
 | --- | --- |
